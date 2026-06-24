@@ -1,0 +1,1 @@
+# This file defines the base Agent interface. All agents should inherit from this class.
