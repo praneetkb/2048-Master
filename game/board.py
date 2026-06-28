@@ -1,6 +1,6 @@
 # This file handles board creation and representation.
 # It is responsible for initializing, resetting, and displaying the game board.
-# Team member responsible: Zenith
+# Team member responsible: João
 import numpy as np
 
 # Represents the 4x4 game board and the tiles on it.
