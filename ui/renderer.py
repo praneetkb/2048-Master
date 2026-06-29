@@ -1,0 +1,1 @@
+# This file is responsibile for visuals only (board/grid, tiles, header, menu)
