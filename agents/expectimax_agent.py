@@ -6,10 +6,11 @@
 # choose_action() --> max_node() --> chance_node() --> evaluate() 
 # choose_action() is called by the game to get the next move (it simply starts the expectimax search).
 # evaluate() is called when the search reaches a leaf node (depth reached or no moves left). It returns number of empty cells and max tile value.
-# Depth is how many moves ahead the agent looks. We set it to 3 for a good balance between performance and speed.
+# Depth is how many moves ahead the agent looks. We set it to 2 for a good balance between performance and speed.
 
 
 import numpy as np
+import random
 
 from agents.agent import Agent
 from game.game import MOVES
@@ -17,7 +18,7 @@ from game.game import MOVES
 
 class ExpectimaxAgent(Agent):
 
-    def __init__(self, depth=3):
+    def __init__(self, depth=2):
         self.depth = depth
 
     # Start the Expectimax search and return the best move
@@ -34,7 +35,7 @@ class ExpectimaxAgent(Agent):
         if depth <= 0:
             return None, self.evaluate(state)
         
-        if self.is_game_over(state):  # no legal moves left
+        if not any(move(state)[2] for move in MOVES.values()): # No moves left
             return None, self.evaluate(state)
 
         best_action = None
@@ -67,11 +68,14 @@ class ExpectimaxAgent(Agent):
         # Search stops if maximum depth is reached or no empty cells left
         if depth <= 0 or not cells:
             return self.evaluate(state)
+        
+        # Randomly sample a subset of empty cells to reduce branching factor and speed up the search
+        samples = random.sample(cells, min(10, len(cells)))
 
         total = 0.0
 
         # Tries spawning a 2 and a 4 in every empty cell
-        for (row, col) in cells:
+        for (row, col) in samples:
 
             for value, probability in ((2, 0.9), (4, 0.1)):
 
@@ -79,7 +83,7 @@ class ExpectimaxAgent(Agent):
                 child[row][col] = value
 
                 # Every empty cell is equally likely
-                spawn_probability = probability / len(cells)
+                spawn_probability = probability / len(samples)
 
                 # max_node returns (best_action, best_value)
                 _, child_value = self.max_node(child, depth)
