@@ -1,5 +1,5 @@
 # This file is responsible for visuals only (board/grid and tiles).
-# Team member responsible: João
+# Team member responsible: João and Praneet
 
 import pygame
 
