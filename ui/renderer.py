@@ -1,5 +1,5 @@
-# This file is responsible for visuals only (board/grid and tiles).
-# Team member responsible: João and Praneet
+# This file is responsible for visuals only (board, tiles, header, menu).
+# Team members responsible: João and Praneet
 
 import pygame
 
@@ -11,6 +11,11 @@ BOARD_COLOR = (145, 128, 112)
 EMPTY_TILE_COLOR = (187, 173, 156)
 TEXT_DARK = (105, 94, 82)
 TEXT_LIGHT = (249, 246, 242)
+
+HEADER_TEXT = (119, 110, 101)
+HEADER_BOX = (187, 173, 160)
+BUTTON_COLOR = (143, 122, 102)
+BUTTON_TEXT = (255, 255, 255)
 
 TILE_COLORS = {
     0: EMPTY_TILE_COLOR,
@@ -192,3 +197,127 @@ class BoardRenderer:
             raise ValueError("BoardRenderer expects a 4x4 grid.")
 
         return grid
+
+
+# Header display above the board - game title, score, best score, and restart button
+class HeaderRenderer:
+
+    def __init__(self):
+        pygame.font.init()
+
+        self.title_font = pygame.font.SysFont("Arial", 42, bold=True)
+        self.label_font = pygame.font.SysFont("Arial", 16, bold=True)
+        self.score_font = pygame.font.SysFont("Arial", 22, bold=True)
+
+    def draw(self, surface, score, best_score):
+
+        # Game title 
+        title = self.title_font.render("2048 Master", True, HEADER_TEXT)
+        surface.blit(title, (20, 20))
+
+        # Score box
+        self._draw_score_box(
+            surface,
+            x=300,
+            y=15,
+            label="SCORE",
+            value=score
+        )
+
+        # Best score box 
+        self._draw_score_box(
+            surface,
+            x=410,
+            y=15,
+            label="BEST",
+            value=best_score
+        )
+
+        # Restart button 
+        restart_rect = pygame.Rect(530, 15, 120, 60)
+
+        pygame.draw.rect(
+            surface,
+            BUTTON_COLOR,
+            restart_rect,
+            border_radius=8
+        )
+
+        text = self.label_font.render("Restart", True, BUTTON_TEXT)
+
+        text_rect = text.get_rect(center=restart_rect.center)
+
+        surface.blit(text, text_rect)
+
+        # Return rectangle so the game loop can detect mouse clicks later
+        return restart_rect
+    
+    def _draw_score_box(self, surface, x, y, label, value):
+
+        box = pygame.Rect(x, y, 95, 60)
+
+        pygame.draw.rect(
+            surface,
+            HEADER_BOX,
+            box,
+            border_radius=8
+        )
+
+        label_text = self.label_font.render(label, True, BUTTON_TEXT)
+
+        value_text = self.score_font.render(str(value), True, BUTTON_TEXT)
+
+        surface.blit(
+            label_text,
+            label_text.get_rect(center=(box.centerx, box.y + 16))
+        )
+
+        surface.blit(
+            value_text,
+            value_text.get_rect(center=(box.centerx, box.y + 42))
+        )
+
+
+# Draws the start menu where the user selects which agent to run
+class MenuRenderer:
+
+    def __init__(self):
+        pygame.font.init()
+
+        self.title_font = pygame.font.SysFont("Arial", 48, bold=True)
+        self.option_font = pygame.font.SysFont("Arial", 28)
+        self.info_font = pygame.font.SysFont("Arial", 20)
+
+    def draw(self, surface):
+
+        surface.fill(CANVAS_COLOR)
+
+        # Title 
+        title = self.title_font.render("2048 Master", True, HEADER_TEXT)
+        title_rect = title.get_rect(center=(surface.get_width() // 2, 100))
+        surface.blit(title, title_rect)
+
+        # Instructions
+        info = self.info_font.render(
+            "Choose an agent to watch play:",
+            True,
+            HEADER_TEXT
+        )
+
+        info_rect = info.get_rect(center=(surface.get_width() // 2, 180))
+        surface.blit(info, info_rect)
+
+        # Options
+        options = [
+            "1 - Random Agent",
+            "2 - Expectimax Agent",
+            "3 - Reinforcement Learning Agent (Coming Soon)"
+        ]
+
+        y = 250
+
+        for option in options:
+            text = self.option_font.render(option, True, TEXT_DARK)
+            rect = text.get_rect(center=(surface.get_width() // 2, y))
+            surface.blit(text, rect)
+            y += 60
