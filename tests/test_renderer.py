@@ -7,7 +7,12 @@ import numpy as np
 import pygame
 
 from game.board import Board
-from ui.renderer import BOARD_COLOR, BoardRenderer
+from ui.renderer import (
+    BOARD_COLOR,
+    BoardRenderer,
+    HeaderRenderer,
+    MenuRenderer,
+)
 
 
 class TestBoardRenderer(unittest.TestCase):
@@ -66,6 +71,31 @@ class TestBoardRenderer(unittest.TestCase):
         gap_pixel = surface.get_at((rects[0].centerx, rects[0].bottom + 1))
 
         self.assertEqual(gap_pixel[:3], BOARD_COLOR)
+
+    def test_header_renderer_draws(self):
+        renderer = HeaderRenderer()
+
+        surface = pygame.Surface((700, 120))
+
+        restart_rect = renderer.draw(
+            surface,
+            score=1500,
+            best_score=3000,
+        )
+
+        self.assertIsInstance(restart_rect, pygame.Rect)
+        self.assertEqual(restart_rect.width, 120)
+        self.assertEqual(restart_rect.height, 60)
+
+    def test_menu_renderer_draws(self):
+        renderer = MenuRenderer()
+
+        surface = pygame.Surface((700, 700))
+
+        # Should render without raising any exceptions
+        renderer.draw(surface)
+
+        self.assertTrue(True)
 
 
 if __name__ == "__main__":
