@@ -2,6 +2,7 @@ import pygame
 import time
 
 from ui.renderer import BoardRenderer, HeaderRenderer, MenuRenderer
+from ui.menu import run_menu
 
 pygame.init()
 
@@ -26,6 +27,9 @@ show_menu = True
 running = True
 
 start_time = time.time()
+choice = run_menu(screen) 
+#for testing
+print("menu choice is:", choice)
 
 while running:
 
