@@ -13,8 +13,10 @@ def main():
     # Play until no move can change the board.
     while not game.is_game_over():
 
-        # Snapshot before the move (copy() keeps it independent of the live board).
-        state = game.board.copy()
+        # Snapshot of the raw grid before the move (agents operate on the numpy
+        # grid, not the Board object — movement.py expects grid.shape etc.).
+        # copy() keeps it independent of the live board.
+        state = game.board.grid.copy()
         score_before = game.score
 
         action = agent.choose_action(state)
