@@ -99,32 +99,3 @@ def run_game_loop(screen, agent):
         pygame.display.flip()
 
     return False
-
-def main():
-    pygame.init()
-    screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    pygame.display.set_caption("2048 Master")
-
-    while True:
-        choice = run_menu(screen)
-
-        if choice is None:
-           break
-        if choice == "compare":
-            keep_running = run_comparison(screen)
-            if not keep_running:
-                break
-            continue
-        agent = get_agent(choice)
-        if agent is None:
-           continue
-
-        restart = run_game_loop(screen, agent)
-
-        if not restart:
-            break
-
-    pygame.quit()
-
-if __name__ == "__main__":
-    main()
