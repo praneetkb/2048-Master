@@ -20,6 +20,7 @@ import numpy as np
 
 from agents.n_tuple_network import NTupleNetwork
 from game.game import MOVES, Game
+from game.score import points_after_merge
 
 
 class TDTrainer:
@@ -28,6 +29,7 @@ class TDTrainer:
         network: NTupleNetwork,
         learning_rate=0.01,
         episodes=10000,  # 10,000 games
+        log_every=500,   # print + checkpoint interval
         checkpoint_path="checkpoints/value_function.npz",
         log_path="training_logs/training_scores.csv",
     ):
@@ -43,6 +45,9 @@ class TDTrainer:
 
         # Number of self-play games used for training
         self.episodes = episodes
+
+        # How often to print progress and save a checkpoint
+        self.log_every = log_every
 
         # Location where learned weights are saved
         self.checkpoint_path = checkpoint_path
@@ -67,13 +72,15 @@ class TDTrainer:
             scores.append(score)
 
             # After every 1000 episodes: calculate average score, save progress and create checkpoint
-            if episode > 0 and episode % 1000 == 0:
+            if episode % self.log_every == 0:
 
-                average = np.mean(scores[-1000:])
+                average = float(np.mean(scores[-self.log_every:]))
+                best = int(np.max(scores[-self.log_every:]))
 
                 print(
                     f"Episode {episode}, "
-                    f"Average Score: {average:.2f}"
+                    f"Average Score: {average:.1f}, "
+                    f"Best: {best}"
                 )
 
                 # Save values for graph
@@ -90,89 +97,59 @@ class TDTrainer:
         self.plot_training_progress()
 
 
-    def play_episode(self):
+    def evaluate_moves(self, state):
+        """Greedy one-step lookahead.
 
-        # Start a new 2048 game
-        # The agent will repeatedly observe, choose actions, receive rewards, and update its value function
-        game = Game()
-
-        while not game.is_game_over():
-            # Current board before taking an action
-            # This represents the current state s
-            state = game.board.grid.copy()
-
-            # Select the action with the highest estimated future value
-            # This returns the move chosen (left, right, up or down) and the board after movement but before random tile spawn (afterstate)
-            action, afterstate = self.choose_action(state)
-
-            if action is None:
-                break
-
-            # Store score before move so we can calculate reward
-            old_score = game.score
-
-            # Apply the chosen move
-            # The environment performs the movement, calculates merge score, and spawns a random tile
-            game.move(action)
-
-            # Reward is the immediate score gained from this move
-            # Example: merging two 4 tiles into an 8 gives reward = 8
-            reward = game.score - old_score
-
-            # This is the new state after the random tile spawns
-            next_state = game.board.grid.copy()
-
-            # Find the best possible future afterstate from the new board. This estimates V(s_next)
-            next_value = self.best_afterstate_value(next_state)
-
-            # Current estimate of how good the previous afterstate was
-            current_value = self.network.value(afterstate)
-
-            # TD error delta tells us how wrong our prediction was
-            # If reward + future value > current value, then the board was better than expected, increase its value
-            # If reward + future value < current value, then the board was worse than expected, decrease its value.
-            delta = reward + next_value - current_value
-
-            # Update the N-tuple lookup tables
-            # The network moves its prediction slightly toward the target: new value = old value + alpha * delta
-            self.network.update(afterstate, self.alpha * delta)
-
-        return game.score
-
-    def choose_action(self, state):
-
+        Returns (action, afterstate, reward, reward + V(afterstate)).
+        The fourth element is exactly the TD target for the PREVIOUS afterstate,
+        which is why the caller can reuse it instead of recomputing.
+        """
         best_action = None
-        best_value = float("-inf")
         best_afterstate = None
+        best_reward = 0.0
+        best_value = float("-inf")
 
-        # During training we do not use deep Expectimax search
-        # Instead, the agent performs a fast greedy one-step search using the current value function.
         for action, move in MOVES.items():
-            afterstate, _merged, changed = move(state)
-
+            afterstate, merged_values, changed = move(state)
             if not changed:
                 continue
 
-            value = self.network.value(afterstate)
+            reward = points_after_merge(merged_values)
+            value = reward + self.network.value(afterstate, validate=False)
 
-            # Keep the move with the highest predicted value
             if value > best_value:
-                best_value = value
                 best_action = action
                 best_afterstate = afterstate
+                best_reward = reward
+                best_value = value
 
-        return best_action, best_afterstate
+        return best_action, best_afterstate, best_reward, best_value
 
-    def best_afterstate_value(self, state):
+    def play_episode(self):
+        """One self-play game with TD(0) updates over afterstates.
 
-        # Find the move that currently looks best from this state and return its predicted value
-        _, afterstate = self.choose_action(state)
+        V(afterstate) estimates FUTURE reward only, so the target for afterstate A1 is
+        R2 + V(A2), where R2 is the reward of the move taken from the NEXT board.
+        The current move's own reward is used for action selection, not for the target.
+        """
+        game = Game()
+        action, afterstate, _reward, _value = self.evaluate_moves(game.board.grid)
 
-        # No possible moves means terminal state
-        if afterstate is None:
-            return 0
+        while action is not None:
+            game.move(action)
 
-        return self.network.value(afterstate)
+            next_action, next_afterstate, _next_reward, target = self.evaluate_moves(
+                game.board.grid
+            )
+            if next_action is None:  # terminal: no future reward
+                target = 0.0
+
+            delta = target - self.network.value(afterstate, validate=False)
+            self.network.update(afterstate, self.alpha * delta)
+
+            action, afterstate = next_action, next_afterstate
+
+        return game.score
 
     def save_checkpoint(self):
 
@@ -259,6 +236,3 @@ class TDTrainer:
         plt.savefig(
             "training_logs/training_progress.png"
         )
-
-
-        plt.show()

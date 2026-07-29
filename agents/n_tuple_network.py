@@ -15,6 +15,11 @@ TUPLE_LENGTH = 4
 TABLE_SIZE = BASE**TUPLE_LENGTH
 FORMAT_VERSION = 1
 
+
+_RANK_LUT = np.zeros(32769, dtype=np.uint8)
+for _k in range(1, BASE):
+    _RANK_LUT[2 ** _k] = _k
+
 Coordinate = Tuple[int, int]
 TuplePattern = Tuple[Coordinate, ...]
 PathLike = Union[str, "Path"]
@@ -59,6 +64,18 @@ class NTupleNetwork:
             dtype=np.intp,
         )
         self._place_values = np.asarray([BASE**position for position in range(TUPLE_LENGTH)], dtype=np.int64)
+
+        # For every symmetry and tuple, which flat cells of the ORIGINAL board are read.
+        # Precomputing this removes the eight rot90 allocations from feature_indices.
+        flat_ids = np.arange(BOARD_SIZE * BOARD_SIZE).reshape(BOARD_SIZE, BOARD_SIZE)
+        sources = (flat_ids, np.fliplr(flat_ids))
+        self._symmetry_cells = np.stack(
+            [
+                np.rot90(source, turns).reshape(-1)[self._tuple_cells]
+                for source in sources
+                for turns in range(4)
+            ]
+        )
 
     @staticmethod
     def _normalize_tuples(tuples: Iterable[Sequence[Coordinate]]) -> Tuple[TuplePattern, ...]:
@@ -133,28 +150,36 @@ class NTupleNetwork:
             for transformed in (np.rot90(source, 0), np.rot90(source, 1), np.rot90(source, 2), np.rot90(source, 3))
         )
 
-    def feature_indices(self, grid: np.ndarray) -> np.ndarray:
-        """Return the table index selected by each symmetry and tuple."""
+    @staticmethod
+    def _ranks_checked(board: np.ndarray) -> np.ndarray:
+        """Vectorised validation + rank lookup. Same errors as _tile_ranks, much cheaper."""
+        if not np.issubdtype(board.dtype, np.integer) or np.issubdtype(board.dtype, np.bool_):
+            raise TypeError("tile values must be integers")
+        if board.size and board.min() < 0:
+            raise ValueError("tile values cannot be negative")
+        if board.size and board.max() > 32768:
+            raise ValueError("base-16 indexing supports tile values only up to 32768")
+        ranks = _RANK_LUT[board]
+        if np.any((board != 0) & (ranks == 0)):
+            raise ValueError("non-empty tiles must be powers of two")
+        return ranks
+
+    def feature_indices(self, grid: np.ndarray, validate: bool = True) -> np.ndarray:
+        """Return the table index selected by each symmetry and tuple.
+
+        Pass validate=False in hot loops once the caller guarantees a legal board.
+        """
         board = np.asarray(grid)
         if board.shape != (BOARD_SIZE, BOARD_SIZE):
             raise ValueError("grid must have shape (4, 4)")
-        ranks = self._tile_ranks(board)
 
-        reflected = np.fliplr(ranks)
-        transformed_boards = [
-            transformed
-            for source in (ranks, reflected)
-            for transformed in (np.rot90(source, 0), np.rot90(source, 1), np.rot90(source, 2), np.rot90(source, 3))
-        ]
+        ranks = self._ranks_checked(board) if validate else _RANK_LUT[board]
 
-        indices = np.empty((8, len(self.tuples)), dtype=np.int64)
-        for symmetry_index, transformed in enumerate(transformed_boards):
-            tuple_ranks = transformed.reshape(-1)[self._tuple_cells]
-            indices[symmetry_index] = tuple_ranks @ self._place_values
-        return indices
+        selected = ranks.reshape(-1)[self._symmetry_cells].astype(np.int64, copy=False)
+        return selected @ self._place_values
 
-    def value(self, grid: np.ndarray) -> float:
-        indices = self.feature_indices(grid)
+    def value(self, grid: np.ndarray, validate: bool = True) -> float:
+        indices = self.feature_indices(grid, validate=validate)
         table_numbers = np.arange(len(self.tuples), dtype=np.intp)[None, :]
         return float(self.tables[table_numbers, indices].sum(dtype=np.float64))
 
@@ -167,10 +192,10 @@ class NTupleNetwork:
         if not np.isfinite(numeric_delta):
             raise ValueError("delta must be finite")
 
-        indices = self.feature_indices(grid)
+        indices = self.feature_indices(grid, validate=False)
         amount_per_lookup = numeric_delta / indices.size
-        for table_number in range(len(self.tuples)):
-            np.add.at(self.tables[table_number], indices[:, table_number], amount_per_lookup)
+        offsets = np.arange(len(self.tuples), dtype=np.int64) * TABLE_SIZE
+        np.add.at(self.tables.reshape(-1), (indices + offsets).reshape(-1), amount_per_lookup)
 
     def save(self, path: PathLike) -> None:
         """Save tuple definitions and lookup tables without changing the path."""

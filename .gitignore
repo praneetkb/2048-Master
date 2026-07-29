@@ -6,6 +6,10 @@ __pycache__/
 *.pyo
 *.pyd
 
+
+checkpoints/
+training_logs/
+
 # -------------------------
 # Virtual environments
 # -------------------------
