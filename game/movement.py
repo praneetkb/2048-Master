@@ -4,6 +4,7 @@
 
 import numpy as np
 
+
 # Helper: Slides all non-zero tiles to the left without merging them
 # row: An array representing a row of tiles
 def slide_row_left(row):

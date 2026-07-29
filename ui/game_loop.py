@@ -3,11 +3,11 @@
 
 import pygame
 
-from game.game import Game
+from agents.expectimax_rl_agent import ExpectimaxRLAgent
 from agents.random_agent import RandomAgent
-from agents.expectimax_agent import ExpectimaxAgent
-from ui.renderer import BoardRenderer, HeaderRenderer, CANVAS_COLOR
+from game.game import Game
 from ui.menu import run_menu
+from ui.renderer import CANVAS_COLOR, BoardRenderer, HeaderRenderer
 
 MOVE_DELAY_MS = 200
 
@@ -19,7 +19,7 @@ def get_agent(choice):
     if choice == "random":
         return RandomAgent()
     if choice == "expectimax":
-        return ExpectimaxAgent(depth=2)
+        return ExpectimaxRLAgent(depth=2)
 
 def run_game_loop(screen, agent):
     game = Game()

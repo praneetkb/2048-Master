@@ -1,8 +1,9 @@
-import pygame
 import time
 
-from ui.renderer import BoardRenderer, HeaderRenderer, MenuRenderer
+import pygame
+
 from ui.menu import run_menu
+from ui.renderer import BoardRenderer, HeaderRenderer, MenuRenderer
 
 pygame.init()
 

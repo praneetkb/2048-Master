@@ -1,6 +1,6 @@
-from game.game import Game
+from agents.expectimax_rl_agent import ExpectimaxRLAgent
 from agents.random_agent import RandomAgent
-from agents.expectimax_agent import ExpectimaxAgent
+from game.game import Game
 
 
 def play_game(agent, max_steps=1000):
@@ -42,7 +42,7 @@ def run_multiple(agent, games=10):
 if __name__ == "__main__":
 
     random_agent = RandomAgent()
-    expectimax_agent = ExpectimaxAgent(depth=2)
+    expectimax_agent = ExpectimaxRLAgent(depth=2)
 
     run_multiple(random_agent, games=10)
     run_multiple(expectimax_agent, games=10)

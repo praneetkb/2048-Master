@@ -9,14 +9,15 @@
 # Depth is how many moves ahead the agent looks. We set it to 2 for a good balance between performance and speed.
 
 
-import numpy as np
 import random
+
+import numpy as np
 
 from agents.agent import Agent
 from game.game import MOVES
 
 
-class ExpectimaxAgent(Agent):
+class ExpectimaxRLAgent(Agent):
 
     def __init__(self, depth=2):
         self.depth = depth

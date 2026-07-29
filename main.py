@@ -2,13 +2,14 @@
 # Runs one game as an MDP rollout: observe state, pick action, apply, repeat.
 # Team member responsible: João
 
+from agents.expectimax_rl_agent import ExpectimaxRLAgent
 from game.game import Game
-from agents.expectimax_agent import ExpectimaxAgent
+
 
 def main():
 
     game = Game()
-    agent = ExpectimaxAgent(depth=3)
+    agent = ExpectimaxRLAgent(depth=3)
 
     # Play until no move can change the board.
     while not game.is_game_over():

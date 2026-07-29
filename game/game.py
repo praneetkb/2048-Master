@@ -3,11 +3,9 @@
 # Team member responsible: Ryan
 
 
-from game.movement import move_left, move_right, move_up, move_down
-from game.score import points_after_merge
-
 from game.board import Board
-
+from game.movement import move_down, move_left, move_right, move_up
+from game.score import points_after_merge
 from game.spawn import spawn_tile
 
 MOVES = {
