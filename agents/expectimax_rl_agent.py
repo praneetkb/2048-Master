@@ -35,9 +35,6 @@ class ExpectimaxRLAgent(Agent):
     def max_node(self, state, depth):
         if depth <= 0:
             return None, self.evaluate(state)
-        
-        if not any(move(state)[2] for move in MOVES.values()): # No moves left
-            return None, self.evaluate(state)
 
         best_action = None
         best_value = float("-inf")
