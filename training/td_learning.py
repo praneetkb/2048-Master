@@ -13,8 +13,10 @@ It estimates how good a board position is.
 Training improves this estimate through experience.
 """
 
+import csv
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 from agents.n_tuple_network import NTupleNetwork
@@ -28,6 +30,7 @@ class TDTrainer:
         learning_rate=0.01,
         episodes=10000,  # 10,000 games
         checkpoint_path="checkpoints/value_function.npz",
+        log_path="training_logs/training_scores.csv",
     ):
 
         # The N-tuple network stores our learned value function
@@ -45,28 +48,48 @@ class TDTrainer:
         # Location where learned weights are saved
         self.checkpoint_path = checkpoint_path
 
+        # Location to save training progress
+        self.log_path = log_path
+
+        # Stores episode numbers and average scores
+        self.training_history: list[tuple[int, float]] = []
+
     def train(self):
 
         scores = []
 
         # Agent is trained by playing many games against itself
         # Each completed game provides experience used to improve V(s)
-        for episode in range(self.episodes):
-
+        for episode in range(1, self.episodes + 1):
             # Final score is stored only for monitoring training progress
             # The score itself is not used to update the network
             score = self.play_episode()
 
             scores.append(score)
 
-            # Periodically print progress and save learned weights
-            # Tracking average score tells us if the agent is improving
+            # After every 1000 episodes: calculate average score, save progress and create checkpoint
             if episode > 0 and episode % 1000 == 0:
+
                 average = np.mean(scores[-1000:])
 
-                print(f"Episode {episode}, Average Score: {average}")
+                print(
+                    f"Episode {episode}, "
+                    f"Average Score: {average:.2f}"
+                )
+
+                # Save values for graph
+                self.training_history.append(
+                    (episode, average)
+                )
 
                 self.save_checkpoint()
+
+        # Save training data
+        self.save_training_log()
+
+        # Generate graph
+        self.plot_training_progress()
+
 
     def play_episode(self):
 
@@ -75,7 +98,6 @@ class TDTrainer:
         game = Game()
 
         while not game.is_game_over():
-
             # Current board before taking an action
             # This represents the current state s
             state = game.board.grid.copy()
@@ -163,3 +185,81 @@ class TDTrainer:
         # Save current N-tuple lookup table values
         # This also allows training to continue later without restarting
         self.network.save(path)
+
+    def save_training_log(self):
+
+        path = Path(self.log_path)
+
+        path.parent.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
+
+        with open(path, "w", newline="") as file:
+
+            writer = csv.writer(file)
+
+            writer.writerow(
+                [
+                    "Episode",
+                    "Average Score"
+                ]
+            )
+
+
+            writer.writerows(
+                self.training_history
+            )
+
+
+        print(
+            f"Training log saved to {path}"
+        )
+
+
+
+    def plot_training_progress(self):
+
+        episodes = [
+            item[0]
+            for item in self.training_history
+        ]
+
+        averages = [
+            item[1]
+            for item in self.training_history
+        ]
+
+
+        plt.figure(figsize=(8,5))
+
+        plt.plot(
+            episodes,
+            averages,
+            marker="o"
+        )
+
+
+        plt.xlabel(
+            "Training Episodes"
+        )
+
+        plt.ylabel(
+            "Average Score"
+        )
+
+        plt.title(
+            "TD Learning Training Progress"
+        )
+
+
+        plt.grid(True)
+
+
+        plt.savefig(
+            "training_logs/training_progress.png"
+        )
+
+
+        plt.show()
