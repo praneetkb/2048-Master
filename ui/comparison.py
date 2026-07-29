@@ -2,7 +2,8 @@ import statistics
 
 from game.game import Game
 from agents.random_agent import RandomAgent
-from agents.expectimax_rl_agent import HeuristicExpectimaxAgent
+from agents.expectimax_rl_agent import ExpectimaxAgent
+from training.checkpoints import load_value_function
 
 
 NUM_GAMES = 5
@@ -38,12 +39,22 @@ def benchmark(agent_factory):
 
 
 def compare_agents():
-    return {
+    # The trained network is loaded ONCE and shared by every game the RL agent
+    # plays, so the RL row reflects the same weights as the training graph.
+    network = load_value_function()
+
+    results = {
         "Random": benchmark(RandomAgent),
         "Expectimax": benchmark(
-            lambda: HeuristicExpectimaxAgent(depth=2)
+            lambda: ExpectimaxAgent(depth=2)
         ),
-        #"RL Agent": benchmark(
-        #
-        #)
     }
+
+    # Without a checkpoint the RL agent would be identical to the heuristic row,
+    # which would be misleading in a comparison table, so it is omitted instead.
+    if network is not None:
+        results["Expectimax + RL"] = benchmark(
+            lambda: ExpectimaxAgent(depth=2, network=network)
+        )
+
+    return results

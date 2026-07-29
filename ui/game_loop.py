@@ -3,7 +3,7 @@
 
 import pygame
 
-from agents.expectimax_rl_agent import HeuristicExpectimaxAgent
+from agents.expectimax_rl_agent import ExpectimaxAgent
 from agents.random_agent import RandomAgent
 from game.game import Game
 from ui.menu import run_menu
@@ -11,8 +11,9 @@ from ui.renderer import CANVAS_COLOR, BoardRenderer, HeaderRenderer
 from ui.animation import TileAnimator
 from ui.comparison import compare_agents
 from ui.renderer import ComparisonRenderer
+from training.checkpoints import load_value_function
 
-POST_MOVE_PAUSE_MS = 120
+POST_MOVE_PAUSE_MS = 0
 
 WINDOW_WIDTH = 700
 WINDOW_HEIGHT = 700
@@ -22,9 +23,11 @@ def get_agent(choice):
     if choice == "random":
         return RandomAgent()
     if choice == "expectimax":
-        return HeuristicExpectimaxAgent(depth=2)
-    if choice == "rl_agent":
-        return None
+        # Heuristic baseline: no network, so evaluate() uses 100*empty + max_tile.
+        return ExpectimaxAgent(depth=2)
+    if choice == "expectimaxRL":
+        # Same search, but the leaves are scored by the trained value function.
+        return ExpectimaxAgent(depth=2, network=load_value_function())
 
 def run_comparison(screen):
     renderer = ComparisonRenderer()

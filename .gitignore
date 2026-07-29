@@ -6,6 +6,17 @@ __pycache__/
 *.pyo
 *.pyd
 
+
+# -------------------------
+# Training artifacts
+# -------------------------
+# The trained value function IS shared: everyone must evaluate with the same
+# weights, otherwise the comparison numbers don't match the training graph.
+# Logs and intermediate plots stay local.
+training_logs/
+checkpoints/*
+!checkpoints/value_function.npz
+
 # -------------------------
 # Virtual environments
 # -------------------------

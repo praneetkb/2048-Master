@@ -9,11 +9,11 @@ from ui.renderer import MenuRenderer
 CHOICES = {
     pygame.K_1: "random",
     pygame.K_2: "expectimax",
-    pygame.K_3: "rl_agent",
+    pygame.K_3: "expectimaxRL",
     pygame.K_4: "compare",
 }
 
-CHOICE_ORDER = ["random", "expectimax", "rl_agent", "compare",]
+CHOICE_ORDER = ["random", "expectimax", "expectimaxRL", "compare"]
 
 #menu loop
 def run_menu(screen):
