@@ -2,7 +2,8 @@
 # Team member responsible: Jayden
 
 import pygame
-
+from pathlib import Path
+from agents.n_tuple_network import NTupleNetwork
 from agents.expectimax_rl_agent import ExpectimaxRLAgent
 from agents.random_agent import RandomAgent
 from game.game import Game
@@ -20,6 +21,11 @@ def get_agent(choice):
     if choice == "random":
         return RandomAgent()
     if choice == "expectimaxRL":
+        checkpoint = Path("checkpoints/value_function.npz")
+        if checkpoint.exists():
+            print("Loaded trained value function")
+            return ExpectimaxRLAgent(depth=2, network=NTupleNetwork.load(checkpoint))
+        print("No checkpoint found, using the heuristic evaluation")
         return ExpectimaxRLAgent(depth=2)
 
 def run_game_loop(screen, agent):
