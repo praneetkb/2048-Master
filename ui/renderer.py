@@ -83,6 +83,35 @@ class BoardRenderer:
 
         return rects
 
+    def draw_frame(self, surface, tiles, top_left=(0, 0)):
+        self._draw_empty_background(surface, top_left)
+        for tile in tiles:
+            self._draw_floating_tile(surface, tile, top_left)
+
+    def _draw_empty_background(self, surface, top_left):
+        empty_grid = [[0] * BOARD_SIZE for _ in range(BOARD_SIZE)]
+        self._draw_board_shapes(surface, empty_grid, top_left)
+
+    def _draw_floating_tile(self, surface, tile, top_left):
+        value = tile["value"]
+        if value == 0:
+            return
+
+        base_rect = self._tile_rect(top_left, tile["row"], tile["col"])
+        scale_factor = tile.get("scale", 1.0)
+
+        if scale_factor != 1.0:
+            w = max(1, int(base_rect.width * scale_factor))
+            h = max(1, int(base_rect.height * scale_factor))
+            rect = pygame.Rect(0, 0, w, h)
+            rect.center = base_rect.center
+        else:
+            rect = base_rect
+
+        color = TILE_COLORS.get(value, LARGE_TILE_COLOR)
+        pygame.draw.rect(surface, color, rect, border_radius=self.tile_radius)
+        self._draw_text(surface, rect, value)
+
     # Draws board, shadow, and tile backgrounds on a smooth layer.
     def _draw_board_shapes(self, surface, grid, top_left):
         scale = max(1, int(self.scale))
@@ -281,43 +310,71 @@ class HeaderRenderer:
 # Draws the start menu where the user selects which agent to run
 class MenuRenderer:
 
+    OPTIONS = (
+        "Random Agent",
+        "Expectimax RL Agent",
+    )
+
+    BUTTON_WIDTH = 420
+    BUTTON_HEIGHT = 78
+    BUTTON_GAP = 20
+    FIRST_BUTTON_Y = 240
+
     def __init__(self):
         pygame.font.init()
 
         self.title_font = pygame.font.SysFont("Arial", 48, bold=True)
-        self.option_font = pygame.font.SysFont("Arial", 28)
-        self.info_font = pygame.font.SysFont("Arial", 20)
+        self.subtitle_font = pygame.font.SysFont("Arial", 18)
+        self.option_font = pygame.font.SysFont("Arial", 23, bold=True)
+        self.badge_font = pygame.font.SysFont("Arial", 22, bold=True)
+        self.hint_font = pygame.font.SysFont("Arial", 15)
 
-    def draw(self, surface):
-
+    def draw(self, surface, hovered_index=None):
         surface.fill(CANVAS_COLOR)
+        width = surface.get_width()
 
-        # Title 
         title = self.title_font.render("2048 Master", True, HEADER_TEXT)
-        title_rect = title.get_rect(center=(surface.get_width() // 2, 100))
-        surface.blit(title, title_rect)
+        surface.blit(title, title.get_rect(center=(width // 2, 100)))
 
-        # Instructions
-        info = self.info_font.render(
-            "Choose an agent to watch play:",
-            True,
-            HEADER_TEXT
+        subtitle = self.subtitle_font.render(
+            "Watch an AI agent play", True, TEXT_DARK
         )
+        surface.blit(subtitle, subtitle.get_rect(center=(width // 2, 150)))
 
-        info_rect = info.get_rect(center=(surface.get_width() // 2, 180))
-        surface.blit(info, info_rect)
+        rects = []
+        for index, label in enumerate(self.OPTIONS):
+            rect = pygame.Rect(0, 0, self.BUTTON_WIDTH, self.BUTTON_HEIGHT)
+            rect.centerx = width // 2
+            rect.y = self.FIRST_BUTTON_Y + index * (self.BUTTON_HEIGHT + self.BUTTON_GAP)
+            rects.append(rect)
 
-        # Options
-        options = [
-            "1 - Random Agent",
-            "2 - Expectimax Agent",
-            "3 - Reinforcement Learning Agent (Coming Soon)"
-        ]
+            self._draw_button(
+                surface,
+                rect,
+                number=index + 1,
+                label=label,
+                hovered=(index == hovered_index),
+            )
 
-        y = 250
+        hint_y = self.FIRST_BUTTON_Y + len(self.OPTIONS) * (self.BUTTON_HEIGHT + self.BUTTON_GAP) + 6
+        hint = self.hint_font.render("Click an option, or press 1, 2", True, HEADER_TEXT)
+        surface.blit(hint, hint.get_rect(center=(width // 2, hint_y)))
 
-        for option in options:
-            text = self.option_font.render(option, True, TEXT_DARK)
-            rect = text.get_rect(center=(surface.get_width() // 2, y))
-            surface.blit(text, rect)
-            y += 60
+        return rects
+
+    def _draw_button(self, surface, rect, number, label, hovered):
+        if hovered:
+            fill, text_color = BUTTON_COLOR, BUTTON_TEXT
+        else:
+            fill, text_color = HEADER_BOX, BUTTON_TEXT
+
+        pygame.draw.rect(surface, fill, rect, border_radius=14)
+
+        badge_rect = pygame.Rect(0, 0, 44, 44)
+        badge_rect.center = (rect.left + 44, rect.centery)
+        pygame.draw.rect(surface, CANVAS_COLOR, badge_rect, border_radius=10)
+        badge = self.badge_font.render(str(number), True, TEXT_DARK)
+        surface.blit(badge, badge.get_rect(center=badge_rect.center))
+
+        label_surf = self.option_font.render(label, True, text_color)
+        surface.blit(label_surf, label_surf.get_rect(midleft=(rect.left + 82, rect.centery)))

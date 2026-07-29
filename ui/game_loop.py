@@ -8,8 +8,9 @@ from agents.random_agent import RandomAgent
 from game.game import Game
 from ui.menu import run_menu
 from ui.renderer import CANVAS_COLOR, BoardRenderer, HeaderRenderer
+from ui.animation import TileAnimator
 
-MOVE_DELAY_MS = 200
+POST_MOVE_PAUSE_MS = 120
 
 WINDOW_WIDTH = 700
 WINDOW_HEIGHT = 700
@@ -18,23 +19,27 @@ BOARD_OFFSET = (20, 100)
 def get_agent(choice):
     if choice == "random":
         return RandomAgent()
-    if choice == "expectimax":
+    if choice == "expectimaxRL":
         return ExpectimaxRLAgent(depth=2)
 
 def run_game_loop(screen, agent):
     game = Game()
     board_renderer = BoardRenderer()
     header_renderer = HeaderRenderer()
+    animator = TileAnimator()
+    animator.snapshot(game.board.grid)
     best_score = 0
 
     clock = pygame.time.Clock()
-    last_move_time = pygame.time.get_ticks()
+    idle_time = 0
 
     running = True
     game_over = False
     restart_rect = pygame.Rect(0, 0, 0, 0)
 
     while running:
+        dt = clock.tick(60)
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
@@ -42,25 +47,33 @@ def run_game_loop(screen, agent):
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if restart_rect.collidepoint(event.pos):
                     return True
-        now = pygame.time.get_ticks()
-        if not game_over and now - last_move_time >= MOVE_DELAY_MS:
-            state = game.board.grid.copy()
-            action = agent.choose_action(state)
-            game.move(action)
-            last_move_time = now
+        animator.update(dt)
+        if animator.is_animating():
+            idle_time = 0
+        else:
+            idle_time += dt
 
-            if game.score > best_score:
-                best_score = game.score
+        if not game_over and not animator.is_animating() and idle_time >= POST_MOVE_PAUSE_MS:
+            old_grid = game.board.grid.copy()
+            action = agent.choose_action(old_grid)
+            changed = game.move(action)
+
+            if changed:
+                animator.start_move(old_grid, action, game.board.grid)
+            
+                if game.score > best_score:
+                    best_score = game.score
+
+            idle_time = 0
 
             if game.is_game_over():
                 game_over = True
 
         screen.fill(CANVAS_COLOR)
         restart_rect = header_renderer.draw(screen, game.score, best_score)
-        board_renderer.draw(screen, game.board, top_left=BOARD_OFFSET)
+        board_renderer.draw_frame(screen, animator.get_render_tiles(), top_left=BOARD_OFFSET)
 
         pygame.display.flip()
-        clock.tick(60)
 
     return False
 
