@@ -312,7 +312,8 @@ class MenuRenderer:
 
     OPTIONS = (
         "Random Agent",
-        "Expectimax RL Agent",
+        "Expectimax (Heuristic)",
+        "Expectimax + TD Learning",
     )
 
     BUTTON_WIDTH = 420
@@ -357,7 +358,8 @@ class MenuRenderer:
             )
 
         hint_y = self.FIRST_BUTTON_Y + len(self.OPTIONS) * (self.BUTTON_HEIGHT + self.BUTTON_GAP) + 6
-        hint = self.hint_font.render("Click an option, or press 1, 2", True, HEADER_TEXT)
+        keys = ", ".join(str(index + 1) for index in range(len(self.OPTIONS)))
+        hint = self.hint_font.render(f"Click an option, or press {keys}", True, HEADER_TEXT)
         surface.blit(hint, hint.get_rect(center=(width // 2, hint_y)))
 
         return rects

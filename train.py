@@ -2,7 +2,6 @@
 #
 #   python train.py                    # this has 10000 episodes which takes more than 20 mins
 #   python train.py --episodes 3000
-#   python train.py --episodes 3000 --alpha 0.05
 #   python train.py --episodes 2000 --resume    # continues from an existing checkpoint saved in checkpoints/
 
 import argparse
@@ -17,9 +16,9 @@ DEFAULT_CHECKPOINT = "checkpoints/value_function.npz"
 def main():
     parser = argparse.ArgumentParser(description="Train the 2048 n-tuple value function.")
     parser.add_argument("--episodes", type=int, default=10000)
-    parser.add_argument("--alpha", type=float, default=0.05)
+    parser.add_argument("--alpha", type=float, default=0.01)
     parser.add_argument("--checkpoint", default=DEFAULT_CHECKPOINT)
-    parser.add_argument("--log-every", type=int, default=500)
+    parser.add_argument("--log-every", type=int, default=1000)
     parser.add_argument("--resume", action="store_true", help="load the checkpoint before training")
     args = parser.parse_args()
 

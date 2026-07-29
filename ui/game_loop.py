@@ -11,7 +11,7 @@ from ui.menu import run_menu
 from ui.renderer import CANVAS_COLOR, BoardRenderer, HeaderRenderer
 from ui.animation import TileAnimator
 
-POST_MOVE_PAUSE_MS = 120
+POST_MOVE_PAUSE_MS = 0
 
 WINDOW_WIDTH = 700
 WINDOW_HEIGHT = 700
@@ -20,6 +20,9 @@ BOARD_OFFSET = (20, 100)
 def get_agent(choice):
     if choice == "random":
         return RandomAgent()
+    if choice == "expectimax":
+        # herusitic
+        return ExpectimaxRLAgent(depth=2)
     if choice == "expectimaxRL":
         checkpoint = Path("checkpoints/value_function.npz")
         if checkpoint.exists():
