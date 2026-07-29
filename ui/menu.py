@@ -8,10 +8,12 @@ from ui.renderer import MenuRenderer
 # K_1 is the '1' key on keyboard
 CHOICES = {
     pygame.K_1: "random",
-    pygame.K_2: "expectimaxRL",
+    pygame.K_2: "expectimax",
+    pygame.K_3: "rl_agent",
+    pygame.K_4: "compare",
 }
 
-CHOICE_ORDER = ["random", "expectimaxRL"]
+CHOICE_ORDER = ["random", "expectimax", "rl_agent", "compare",]
 
 #menu loop
 def run_menu(screen):

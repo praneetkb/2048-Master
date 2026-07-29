@@ -3,12 +3,14 @@
 
 import pygame
 
-from agents.expectimax_rl_agent import ExpectimaxRLAgent
+from agents.expectimax_rl_agent import HeuristicExpectimaxAgent
 from agents.random_agent import RandomAgent
 from game.game import Game
 from ui.menu import run_menu
 from ui.renderer import CANVAS_COLOR, BoardRenderer, HeaderRenderer
 from ui.animation import TileAnimator
+from ui.comparison import compare_agents
+from ui.renderer import ComparisonRenderer
 
 POST_MOVE_PAUSE_MS = 120
 
@@ -19,8 +21,29 @@ BOARD_OFFSET = (20, 100)
 def get_agent(choice):
     if choice == "random":
         return RandomAgent()
-    if choice == "expectimaxRL":
-        return ExpectimaxRLAgent(depth=2)
+    if choice == "expectimax":
+        return HeuristicExpectimaxAgent(depth=2)
+    if choice == "rl_agent":
+        return None
+
+def run_comparison(screen):
+    renderer = ComparisonRenderer()
+    results = compare_agents()
+    clock = pygame.time.Clock()
+
+    while True:
+        clock.tick(60)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return True
+
+        renderer.draw(screen, results)
+        pygame.display.flip()    
+
 
 def run_game_loop(screen, agent):
     game = Game()
@@ -86,12 +109,18 @@ def main():
         choice = run_menu(screen)
 
         if choice is None:
-            break
-
+           break
+        if choice == "compare":
+            keep_running = run_comparison(screen)
+            if not keep_running:
+                break
+            continue
         agent = get_agent(choice)
         if agent is None:
-            continue
+           continue
+
         restart = run_game_loop(screen, agent)
+
         if not restart:
             break
 

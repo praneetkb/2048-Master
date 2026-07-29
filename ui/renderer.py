@@ -312,7 +312,9 @@ class MenuRenderer:
 
     OPTIONS = (
         "Random Agent",
-        "Expectimax RL Agent",
+        "Expectimax Agent",
+        "RL Agent",
+        "Compare Performance",
     )
 
     BUTTON_WIDTH = 420
@@ -357,7 +359,7 @@ class MenuRenderer:
             )
 
         hint_y = self.FIRST_BUTTON_Y + len(self.OPTIONS) * (self.BUTTON_HEIGHT + self.BUTTON_GAP) + 6
-        hint = self.hint_font.render("Click an option, or press 1, 2", True, HEADER_TEXT)
+        hint = self.hint_font.render("Click an option, or press 1, 2, 3, or 4", True, HEADER_TEXT)
         surface.blit(hint, hint.get_rect(center=(width // 2, hint_y)))
 
         return rects
@@ -378,3 +380,59 @@ class MenuRenderer:
 
         label_surf = self.option_font.render(label, True, text_color)
         surface.blit(label_surf, label_surf.get_rect(midleft=(rect.left + 82, rect.centery)))
+
+class ComparisonRenderer:
+
+    def __init__(self):
+        self.title_font = pygame.font.SysFont("arial", 34, bold=True)
+        self.header_font = pygame.font.SysFont("arial", 24, bold=True)
+        self.font = pygame.font.SysFont("arial", 22)
+
+    def draw(self, screen, results):
+        screen.fill(CANVAS_COLOR)
+        title = self.title_font.render(
+            "Agent Performance Comparison",
+            True,
+            (119, 110, 101),
+        )
+
+        screen.blit(title, (70, 40))
+
+        headers = [
+            "Agent",
+            "Runs",
+            "Avg Score",
+            "Best Score",
+            "Highest Tile",
+        ]
+
+        x_positions = [30, 150, 260, 390, 520]
+
+        for x, h in zip(x_positions, headers):
+            txt = self.header_font.render(h, True, (119,110,101))
+            screen.blit(txt, (x, 120))
+
+        y = 180
+
+        for name, stats in results.items():
+            values = [
+                name,
+                str(stats["Runs"]),
+                str(stats["Average Score"]),
+                str(stats["Best Score"]),
+                str(stats["Highest Tile"]),
+            ]
+
+            for x, value in zip(x_positions, values):
+                txt = self.font.render(value, True, (80,80,80))
+                screen.blit(txt, (x, y))
+
+            y += 55
+
+        hint = self.font.render(
+            "Press ESC to return to menu",
+            True,
+            (119,110,101)
+        )
+
+        screen.blit(hint, (220, 620))
