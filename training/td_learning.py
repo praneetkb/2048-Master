@@ -1,17 +1,16 @@
-"""
-TD Learning trainer for 2048.
+# TD Learning trainer for 2048.
 
-Responsible for:
-- generating self-play games
-- choosing moves greedily using the current value function
-- calculating TD error
-- updating the N-tuple network
-- saving checkpoints during training
+# This is responsible for:
+# generating self-play games
+# choosing moves greedily using the current value function
+# calculating TD error
+# updating the N-tuple network
+# saving checkpoints during training
 
-The N-tuple network acts as the value function V(s).
-It estimates how good a board position is.
-Training improves this estimate through experience.
-"""
+# The N-tuple network acts as the value function V(s). It estimates how good a board position is.
+# Training improves this estimate through experience.
+
+# Team member responsible: Praneet
 
 import csv
 from pathlib import Path
