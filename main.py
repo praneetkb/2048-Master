@@ -2,14 +2,14 @@
 # Runs one game as an MDP rollout: observe state, pick action, apply, repeat.
 # Team member responsible: João
 
-from agents.expectimax_rl_agent import ExpectimaxRLAgent
+from agents.expectimax_rl_agent import HeuristicExpectimaxAgent
 from game.game import Game
 
 
 def main():
 
     game = Game()
-    agent = ExpectimaxRLAgent(depth=3)
+    agent = HeuristicExpectimaxAgent(depth=3)
 
     # Play until no move can change the board.
     while not game.is_game_over():

@@ -17,7 +17,7 @@ from agents.agent import Agent
 from game.game import MOVES
 
 
-class ExpectimaxRLAgent(Agent):
+class HeuristicExpectimaxAgent(Agent):
 
     def __init__(self, depth=2):
         self.depth = depth
