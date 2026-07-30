@@ -52,7 +52,7 @@
 
 \section*{Project Recap}
 
-Our project is an AI agent that learns to play the game 2048 autonomously. The input is the current $4\times4$ game board, and the output is one of four possible actions (up, down, left, or right). We use reinforcement learning as our primary AI approach, with a Random agent and our previous Expectimax agent as baseline methods for comparison.
+Our project is an AI agent that learns to play the game 2048 autonomously. The input is the current $4\times4$ game board, and the output is one of four possible actions (up, down, left, or right). We use reinforcement learning as our primary AI approach, integrated with an Expectimax search agent. A Random agent and the original heuristic-based Expectimax agent from Milestone 1 are used as baseline methods for comparison.
 
 \section*{Accomplishments with Proof}
 
@@ -130,17 +130,23 @@ All three agents played $15$ games on the same environment, with the RL agent us
 
 The learned value function outperforms the hand-written heuristic by roughly $4.9\times$ and reaches the $2048$ tile in every game, where the heuristic reaches it once in $15$ and the random baseline never does. The comparison also isolates what the search contributes: the training graph shows the value function alone averaging about $24{,}400$ when picking moves greedily, and placing that same network inside the depth-$2$ search roughly doubles it. Both components are needed, which is why the heuristic Expectimax is kept as a baseline rather than replaced.
 
-\textbf{Proof for UI:} video showing everything from the main menu to some moves being played, to show tile animations and score updates.
+\textbf{Proof for UI:} A video demonstration showing the complete UI flow, including the main menu, agent selection, gameplay, tile animations, and score updates.
+
+\textbf{Video Link:} \href{https://drive.google.com/file/d/1-gKNcE1lnj2mgyTqu5JZMDWHQt1NOJ9a/view?usp=sharing}{UI Demonstration Video}
 
 \section*{Challenges}
 
-The main challenge we encountered during Milestone 2 was determining how to design and implement the reinforcement learning component of our agent. The RL agent required decisions about the value representation, training algorithm, and learning process. We needed to carefully consider how the board state should be represented and how the agent could learn useful patterns from experience.
+The main challenge we encountered during Milestone 2 was designing the reinforcement learning component of our agent. A major difficulty was selecting an appropriate value representation and training approach for the 2048 environment. We needed to consider factors such as the stochastic nature of tile spawning, the large number of possible board configurations, and the computational cost of training. We explored different reinforcement learning approaches and evaluated how each method would integrate with our existing game environment.
 
-We researched different possible approaches for representing the value function, including neural network-based methods, however, we realized that a neural network would introduce additional complexity in terms of architecture design and computational requirements. We decided to use an N-tuple network combined with Temporal Difference learning. This approach is computationally efficient, well-suited for the 2048 environment, and allows the agent to learn board patterns through self-play using lookup table updates.
+Another challenge was designing a training process that allowed the agent to improve reliably. We needed to determine how the agent should generate experience, how rewards should influence learning, and how value updates should be applied without causing unstable learning. Through research and experimentation, we developed a self-play training pipeline using TD learning and an N-tuple network, which allowed the agent to efficiently learn board evaluation patterns from its own gameplay experience.
 
 \section*{Changes from Original Plan}
 
-There are no changes to our original project scope or AI approach. We continued with our original goal of developing an AI agent capable of autonomously playing 2048 and evaluating its performance against baseline approaches. The main adjustments made during development were implementation decisions rather than changes to the project direction. For Milestone 2, we implemented reinforcement learning using a Temporal Difference (TD) learning algorithm with an N-tuple network as the value representation. This approach was selected because it is well-suited for the 2048 environment, computationally efficient for self-play training, and allows the agent to learn board patterns through experience. These design choices allowed us to continue following our original plan while keeping the project scope achievable within the given timeline.
+Our overall project scope and objective remained unchanged. However, two implementation decisions changed from our original proposal. Initially, we planned to implement a neural-network-based Q-learning agent using PyTorch. After further research into reinforcement learning approaches for 2048, we decided to replace the planned neural network value representation with an N-tuple network and replace Q-learning with a Temporal Difference (TD) learning algorithm.
+
+This change was made because N-tuple networks are well-suited for the 2048 environment, allowing the agent to efficiently learn board evaluation patterns through self-play while requiring significantly less computational overhead than training a neural network. Additionally, TD learning is a better fit for our implementation because 2048 has deterministic player actions followed by stochastic tile spawning. Instead of learning separate values for each possible action, TD learning allows the agent to directly learn the value of the resulting board position after each move and update its estimate based on future rewards.
+
+These adjustments maintained the original goal of developing a reinforcement learning agent while providing a more practical and efficient approach that could be completed within the project timeline.
 
 \vspace{0.5em}
 
