@@ -163,7 +163,7 @@ The video shows the trained agent playing through the finished interface end to 
 
 \section*{Challenges}
 
-The main challenge in Milestone 2 was choosing how to represent and train the value function. The 2048 environment makes this difficult: tile spawns are stochastic, the number of reachable board configurations is enormous, and any representation has to be cheap enough to evaluate inside a search. We considered a neural network first and settled on an N-tuple network with TD learning, which is far cheaper per evaluation and needs no architecture tuning.
+The main challenge in Milestone 2 was choosing how to represent and train the value function. The 2048 environment makes this difficult: tile spawns are stochastic, the number of reachable board configurations is large, and any representation has to be cheap enough to evaluate inside a search. We considered a neural network first and settled on an N-tuple network with TD learning, which is far cheaper per evaluation and needs no architecture tuning.
 
 Two problems inside the pipeline took several attempts to get right. The first was where the reward belongs in the update. An early version added the reward of the current move to its own target, which double counts it: the value of an afterstate estimates future reward only, so the target has to use the reward of the move taken from the next board. Fixing this changed the quantity being learned, not just the numbers. The second was the learning rate. The update is spread across all $136$ lookups selected by the symmetric tuples, so the effective step per weight is much smaller than the nominal rate, and our first choice of $0.01$ was learning far more slowly than it appeared to. We settled it by measurement: over $10{,}000$ episodes, $0.01$ averaged about $16{,}000$ and $0.05$ about $24{,}500$, so the submitted agent uses $0.05$.
 
@@ -171,7 +171,7 @@ Two problems inside the pipeline took several attempts to get right. The first w
 
 Our scope and objective are unchanged, but two implementation decisions were changed from the proposal. We planned to implement a neural-network Q-learning agent in PyTorch, but after further research into reinforcement learning for 2048 we replaced the neural network with an N-tuple network, and action-value Q-learning with afterstate TD$(0)$ state-value learning. The N-tuple network is far cheaper to evaluate and requires no architecture design, and afterstate values fit this game better because the player's move is deterministic and only the spawn that follows is random: instead of a value for every board and action pair, the agent learns one value per resulting position, reached after the move but before the spawn.
 
-Two smaller departures follow from the same decision. The feature-based Q-learning agent listed in the proposal as the minimal viable system was not built, because the N-tuple network learns board features directly from experience. Expectimax also changed role: the proposal treated it purely as a baseline, and it is now also the policy acting on the learned value function, with the heuristic version kept as the baseline.
+Additionally, the feature-based Q-learning agent listed in the proposal as the minimal viable system was not built, because the N-tuple network learns board features directly from experience. Expectimax also changed role: the proposal treated it purely as a baseline, and it is now also the policy acting on the learned value function, with the heuristic version kept as the baseline.
 
 \vspace{0.5em}
 
