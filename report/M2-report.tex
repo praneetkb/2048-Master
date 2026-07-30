@@ -97,7 +97,7 @@ We implemented a Temporal Difference (TD) learning training pipeline that allows
 \includegraphics[width=\textwidth]{nvim_2b_td_update.png}
 \end{figure}
 
-The console output shows the average score per $1000$ episodes rising as self-play proceeds, and the graph plots that same progression over $10{,}000$ episodes, from roughly $5{,}400$ to $15{,}500$.
+The console output shows the average score per $1000$ episodes rising as self-play proceeds, and the graph plots that same progression over $10{,}000$ episodes, from roughly $8{,}400$ to $24{,}400$.
 
 The value function starts at zero everywhere, so all of this improvement comes from experience the agent generated itself. The curve rising steadily and not collapsing is evidence the TD updates are stable, which is the main risk with a learning rate applied to a lookup table.
 
@@ -119,16 +119,16 @@ We integrated the reinforcement learning components with our existing 2048 envir
 \toprule
 \textbf{Agent} & \textbf{Games} & \textbf{Avg Score} & \textbf{Median} & \textbf{Best} & \textbf{Best Tile} & \textbf{Reached 2048} \\
 \midrule
-Random & $15$ & $1{,}023$ & $1{,}056$ & $1{,}544$ & $128$ & $0/15$ \\
-Expectimax (heuristic) & $15$ & $8{,}992$ & $7{,}216$ & $15{,}364$ & $1024$ & $0/15$ \\
-Expectimax + RL & $15$ & $31{,}618$ & $31{,}276$ & $71{,}524$ & $4096$ & $13/15$ \\
+Random & $15$ & $992$ & $720$ & $2{,}772$ & $256$ & $0/15$ \\
+Expectimax (heuristic) & $15$ & $9{,}974$ & $7{,}184$ & $26{,}768$ & $2048$ & $1/15$ \\
+Expectimax + RL & $15$ & $48{,}487$ & $37{,}880$ & $78{,}224$ & $4096$ & $15/15$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 
 All three agents played $15$ games on the same environment, with the RL agent using the trained value function inside the same Expectimax search at depth $2$.
 
-The learned value function outperforms the hand-written heuristic by $3.5\times$ and reaches the $2048$ tile in $13$ of $15$ games, where neither baseline reaches it once. The comparison also isolates what the search contributes: the training graph shows the value function alone averaging around $15{,}500$ when picking moves greedily, and placing that same network inside the depth-$2$ search nearly doubles it. Both components are needed, which is why the heuristic Expectimax is kept as a baseline rather than replaced.
+The learned value function outperforms the hand-written heuristic by roughly $4.9\times$ and reaches the $2048$ tile in every game, where the heuristic reaches it once in $15$ and the random baseline never does. The comparison also isolates what the search contributes: the training graph shows the value function alone averaging about $24{,}400$ when picking moves greedily, and placing that same network inside the depth-$2$ search roughly doubles it. Both components are needed, which is why the heuristic Expectimax is kept as a baseline rather than replaced.
 
 \textbf{Proof for UI:} video showing everything from the main menu to some moves being played, to show tile animations and score updates.
 
