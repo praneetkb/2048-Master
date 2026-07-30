@@ -1,0 +1,149 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1.1in]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[table]{xcolor}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fontspec}
+\usepackage{microtype}
+
+% Inter throughout: Regular for body, SemiBold for headings.
+\setmainfont{Inter-Regular.ttf}[
+  Path = fonts/,
+  BoldFont = Inter-SemiBold.ttf,
+  ItalicFont = Inter-Italic.ttf,
+]
+
+\newfontfamily\headingfont{Inter-SemiBold.ttf}[Path = fonts/]
+
+% Slightly lighter than pure black: pure black against a white page is harsh
+% at this weight, and near-black reads calmer without losing contrast.
+\definecolor{ink}{HTML}{1A1A1A}
+\definecolor{rulegray}{HTML}{D8D8D8}
+\color{ink}
+
+\titleformat{\section}{\headingfont\large\color{ink}}{}{0pt}{}
+\titlespacing*{\section}{0pt}{1.8em}{0.6em}
+\titleformat{\subsection}{\headingfont\normalsize\color{ink}}{}{0pt}{}
+\titlespacing*{\subsection}{0pt}{1.5em}{0.4em}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.65em}
+\linespread{1.12}
+
+\renewcommand{\arraystretch}{1.35}
+\arrayrulecolor{rulegray}
+
+\graphicspath{{images/}}
+
+\begin{document}
+
+\begin{center}
+{\headingfont\LARGE\color{ink} CMPT 310 - Project Milestone 2}
+\end{center}
+\vspace{1em}
+
+\section*{Project Recap}
+
+Our project is an AI agent that learns to play the game 2048 autonomously. The input is the current $4\times4$ game board, and the output is one of four possible actions (up, down, left, or right). We use reinforcement learning as our primary AI approach, with a Random agent and our previous Expectimax agent as baseline methods for comparison.
+
+\section*{Accomplishments with Proof}
+
+\subsection*{Accomplishment 1: Implemented N-Tuple Network Value Function}
+
+To enable reinforcement learning, we replaced the manually designed heuristic evaluation function from our Expectimax agent with a learned value function. We implemented an N-tuple network that estimates the value of a given 2048 board state by learning patterns from board configurations. The network represents the $4\times4$ game board as multiple groups of tuples. Each tuple maps the observed tile values into lookup table entries, and the overall value of a board is calculated by summing the values from all tuple patterns. To improve generalization, we implemented symmetry handling by evaluating rotated and reflected versions of the board. The N-tuple network serves as the value function $V(s)$, where higher values represent board states that are expected to achieve higher future rewards. Initially, all lookup table values are initialized to zero, and they are gradually updated during training through experience generated from self-play.
+
+\textbf{Proof:} code excerpts from \texttt{agents/n\_tuple\_network.py}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{nvim_1a_tuple_patterns.png}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{nvim_1b_feature_indices.png}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{nvim_1c_update.png}
+\end{figure}
+
+The excerpts show the $17$ tuple patterns extracted from the board ($4$ rows, $4$ columns, $9$ overlapping $2\times2$ squares), the conversion of a board into lookup table indices across all $8$ symmetries, and the paired \texttt{value()} and \texttt{update()} methods.
+
+This replaces the hand-designed evaluation function from Milestone 1 with one that is learned. The symmetry handling is what makes the learning practical: because the $8$ equivalent views of a board share weights, a single observed position trains $8$ patterns at once, so the agent generalizes from far fewer games. The \texttt{value()} and \texttt{update()} pair is the interface TD learning needs, which is what let the training pipeline in Accomplishment 2 be built on top of it.
+
+\subsection*{Accomplishment 2: Implemented TD Learning Self-Play Training Pipeline}
+
+We implemented a Temporal Difference (TD) learning training pipeline that allows the agent to improve its decision-making through self-play. The agent generates its own experience by repeatedly playing complete 2048 games. During each episode, the agent observes the current board state, selects the move with the highest estimated value using the current N-tuple network, performs the action, and receives a reward based on the score gained from tile merges. The TD error is calculated by comparing the current value estimate with the observed reward and the estimated future value. Then, the N-tuple network is updated using this error to gradually improve its prediction. We also implemented checkpoint saving that saves learned values periodically (every $1000$ episodes). This helps us track progress and enables future evaluation or continued training.
+
+\textbf{Proof:} training progress graph and the TD update in \texttt{training/td\_learning.py}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.72\textwidth]{training_progress.png}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{nvim_2b_td_update.png}
+\end{figure}
+
+The console output shows the average score per $1000$ episodes rising as self-play proceeds, and the graph plots that same progression over $10{,}000$ episodes, from roughly $5{,}400$ to $15{,}500$.
+
+The value function starts at zero everywhere, so all of this improvement comes from experience the agent generated itself. The curve rising steadily and not collapsing is evidence the TD updates are stable, which is the main risk with a learning rate applied to a lookup table.
+
+\subsection*{Accomplishment 3: Integrated RL Agent with Existing 2048 System and Completed Interactive UI}
+
+We integrated the reinforcement learning components with our existing 2048 environment, which includes board movement, tile merging, random tile spawning, scoring, and game termination logic. The reinforcement learning pipeline was designed to interact directly with this environment, allowing the N-tuple network value function to learn board evaluations through self-play without modifying the core game mechanics. Additionally, we completed the graphical user interface using Pygame. It includes a main menu where users can select between the agents, a $4\times4$ game board, score and best score display, and tile animations for movement and merging.
+
+\textbf{Proof:} the evaluation function that lets one search use either value function, and a table comparing the previous Expectimax agent, the Expectimax agent using the learned value function, and the Random baseline
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{nvim_3a_evaluate.png}
+\end{figure}
+
+\begin{center}
+\setlength{\tabcolsep}{6pt}
+\small
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Agent} & \textbf{Games} & \textbf{Avg Score} & \textbf{Median} & \textbf{Best} & \textbf{Best Tile} & \textbf{Reached 2048} \\
+\midrule
+Random & $15$ & $1{,}023$ & $1{,}056$ & $1{,}544$ & $128$ & $0/15$ \\
+Expectimax (heuristic) & $15$ & $8{,}992$ & $7{,}216$ & $15{,}364$ & $1024$ & $0/15$ \\
+Expectimax + RL & $15$ & $31{,}618$ & $31{,}276$ & $71{,}524$ & $4096$ & $13/15$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+All three agents played $15$ games on the same environment, with the RL agent using the trained value function inside the same Expectimax search at depth $2$.
+
+The learned value function outperforms the hand-written heuristic by $3.5\times$ and reaches the $2048$ tile in $13$ of $15$ games, where neither baseline reaches it once. The comparison also isolates what the search contributes: the training graph shows the value function alone averaging around $15{,}500$ when picking moves greedily, and placing that same network inside the depth-$2$ search nearly doubles it. Both components are needed, which is why the heuristic Expectimax is kept as a baseline rather than replaced.
+
+\textbf{Proof for UI:} video showing everything from the main menu to some moves being played, to show tile animations and score updates.
+
+\section*{Challenges}
+
+The main challenge we encountered during Milestone 2 was determining how to design and implement the reinforcement learning component of our agent. The RL agent required decisions about the value representation, training algorithm, and learning process. We needed to carefully consider how the board state should be represented and how the agent could learn useful patterns from experience.
+
+We researched different possible approaches for representing the value function, including neural network-based methods, however, we realized that a neural network would introduce additional complexity in terms of architecture design and computational requirements. We decided to use an N-tuple network combined with Temporal Difference learning. This approach is computationally efficient, well-suited for the 2048 environment, and allows the agent to learn board patterns through self-play using lookup table updates.
+
+\section*{Changes from Original Plan}
+
+There are no changes to our original project scope or AI approach. We continued with our original goal of developing an AI agent capable of autonomously playing 2048 and evaluating its performance against baseline approaches. The main adjustments made during development were implementation decisions rather than changes to the project direction. For Milestone 2, we implemented reinforcement learning using a Temporal Difference (TD) learning algorithm with an N-tuple network as the value representation. This approach was selected because it is well-suited for the 2048 environment, computationally efficient for self-play training, and allows the agent to learn board patterns through experience. These design choices allowed us to continue following our original plan while keeping the project scope achievable within the given timeline.
+
+\vspace{0.5em}
+
+GitHub repo link: \url{https://github.com/praneetkb/2048-Master}
+
+\end{document}
