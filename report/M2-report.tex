@@ -79,7 +79,7 @@ To enable reinforcement learning, we replaced the manually designed heuristic ev
 
 The excerpts show the $17$ tuple patterns extracted from the board ($4$ rows, $4$ columns, $9$ overlapping $2\times2$ squares), the conversion of a board into lookup table indices across all $8$ symmetries, and the paired \texttt{value()} and \texttt{update()} methods.
 
-This replaces the hand-designed evaluation function from Milestone 1 with one that is learned. The symmetry handling is what makes the learning practical: because the $8$ equivalent views of a board share weights, a single observed position trains $8$ patterns at once, so the agent generalizes from far fewer games. The \texttt{value()} and \texttt{update()} pair is the interface TD learning needs, which is what let the training pipeline in Accomplishment 2 be built on top of it.
+This replaces the hand-designed evaluation function from Milestone 1 with one that is learned. The symmetry handling is what makes the learning practical: the eight rotations and reflections of a board share the same lookup tables, so one observed position writes into $8 \times 17 = 136$ table entries at once and the agent generalizes from far fewer games. The \texttt{value()} and \texttt{update()} pair is the interface TD learning needs, which is what let the training pipeline in Accomplishment 2 be built on top of it.
 
 \subsection*{Accomplishment 2: Implemented TD Learning Self-Play Training Pipeline}
 
