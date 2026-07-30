@@ -274,7 +274,7 @@ class MenuRenderer:
         surface.blit(title, title.get_rect(center=(center_x, 96)))
 
         subtitle = font(16, "regular").render(
-            "Watch a reinforcement learning agent play", True, INK_SOFT
+            "Watch an agent play", True, INK_SOFT
         )
         surface.blit(subtitle, subtitle.get_rect(center=(center_x, 134)))
 
