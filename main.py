@@ -3,7 +3,7 @@
 
 import pygame
 
-from ui.game_loop import AGENT_LABELS, get_agent, run_game_loop, run_comparison
+from ui.game_loop import AGENT_LABELS, get_agent, run_comparison, run_game_loop
 from ui.menu import run_menu
 
 WINDOW_WIDTH = 700

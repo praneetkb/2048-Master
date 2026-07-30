@@ -8,12 +8,12 @@ import pygame
 from agents.expectimax_rl_agent import ExpectimaxAgent
 from agents.random_agent import RandomAgent
 from game.game import Game
-from ui.menu import run_menu
-from ui.renderer import BoardRenderer, ComparisonRenderer, HeaderRenderer
+from training.checkpoints import load_value_function
 from ui.animation import TileAnimator
 from ui.comparison import compare_agents
+from ui.menu import run_menu
+from ui.renderer import BoardRenderer, ComparisonRenderer, HeaderRenderer
 from ui.theme import CANVAS, INK, INK_SOFT, blit_center, font
-from training.checkpoints import load_value_function
 
 POST_MOVE_PAUSE_MS = 0
 
@@ -71,7 +71,7 @@ def run_comparison(screen):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
-            if event.type == pygame.KEYDOWN:
+            if event.type == pygame.KEYDOWN:  # noqa: SIM102
                 if event.key == pygame.K_ESCAPE:
                     return True
 
@@ -116,7 +116,7 @@ def run_game_loop(screen, agent, agent_label=None):
                 if event.type == pygame.QUIT:
                     return False
 
-                if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.type == pygame.MOUSEBUTTONDOWN:  # noqa: SIM102
                     if restart_rect.collidepoint(event.pos):
                         restart = True
 
@@ -143,7 +143,7 @@ def run_game_loop(screen, agent, agent_label=None):
                 if changed:
                     animator.start_move(old_grid, action, game.board.grid)
 
-                    if game.score > best_score:
+                    if game.score > best_score:  # noqa: PLR1730
                         best_score = game.score
 
                 idle_time = 0
@@ -163,7 +163,7 @@ def run_game_loop(screen, agent, agent_label=None):
             pygame.display.flip()
 
 
-_overlay_cache = {}
+_overlay_cache: dict[int, pygame.Surface] = {}
 
 
 def _draw_game_over(screen, board_renderer, board_offset, game):
