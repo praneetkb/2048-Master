@@ -16,7 +16,7 @@ DEFAULT_CHECKPOINT = "checkpoints/value_function.npz"
 def main():
     parser = argparse.ArgumentParser(description="Train the 2048 n-tuple value function.")
     parser.add_argument("--episodes", type=int, default=10000)
-    parser.add_argument("--alpha", type=float, default=0.01)
+    parser.add_argument("--alpha", type=float, default=0.05)
     parser.add_argument("--checkpoint", default=DEFAULT_CHECKPOINT)
     parser.add_argument("--log-every", type=int, default=1000)
     parser.add_argument("--resume", action="store_true", help="load the checkpoint before training")

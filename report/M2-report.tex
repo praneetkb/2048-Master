@@ -88,6 +88,8 @@ This replaces the hand-designed evaluation function from Milestone 1 with one th
 
 We implemented a Temporal Difference (TD) learning training pipeline that allows the agent to improve its decision-making through self-play. The agent generates its own experience by repeatedly playing complete 2048 games. During each episode, the agent observes the current board state, selects the move with the highest estimated value using the current N-tuple network, performs the action, and receives a reward based on the score gained from tile merges. The TD error is calculated by comparing the current value estimate with the observed reward and the estimated future value. Then, the N-tuple network is updated using this error to gradually improve its prediction. We also implemented checkpoint saving that saves learned values periodically (every $1000$ episodes). This helps us track progress and enables future evaluation or continued training.
 
+The concrete settings behind the submitted agent are as follows. Each board cell is encoded as the exponent of its tile value ($0$ for an empty cell, $k$ for a tile of $2^k$), which is what makes each four-cell tuple a base-$16$ lookup index. The reward for a move is the sum of the values of the tiles created by merges on that move. The submitted value function was trained for $10{,}000$ self-play episodes with a learning rate of $\alpha = 0.05$, applied to the afterstate reached after the player moves but before the random tile spawns.
+
 \textbf{Proof:} training progress graph and the TD update in \texttt{training/td\_learning.py}
 
 \begin{figure}[H]
@@ -100,7 +102,7 @@ We implemented a Temporal Difference (TD) learning training pipeline that allows
 \includegraphics[width=\textwidth]{nvim_2b_td_update.png}
 \end{figure}
 
-The console output shows the average score per $1000$ episodes rising as self-play proceeds, and the graph plots that same progression over $10{,}000$ episodes, from roughly $8{,}400$ to $24{,}400$.
+The graph plots the average score over each block of $1000$ training episodes, rising from roughly $8{,}400$ after the first $1000$ episodes to about $24{,}400$ at $10{,}000$. The code excerpt shows the TD$(0)$ update: the target for an afterstate is the reward of the following move plus the estimated value of the next afterstate, and the network is corrected by that error scaled by the learning rate.
 
 The value function starts at zero everywhere, so all of this improvement comes from experience the agent generated itself. The curve rising steadily and not collapsing is evidence the TD updates are stable, which is the main risk with a learning rate applied to a lookup table.
 
