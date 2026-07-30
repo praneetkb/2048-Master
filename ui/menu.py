@@ -21,32 +21,40 @@ def run_menu(screen):
     clock = pygame.time.Clock()
 
     button_rects = []
+    cursor_is_hand = None
 
-    while True:
-        mouse_pos = pygame.mouse.get_pos()
-        hovered_index = None
-        for index, rect in enumerate(button_rects):
-            if rect.collidepoint(mouse_pos):
-                hovered_index = index
-                break
+    try:
+        while True:
+            mouse_pos = pygame.mouse.get_pos()
+            hovered_index = None
+            for index, rect in enumerate(button_rects):
+                if rect.collidepoint(mouse_pos):
+                    hovered_index = index
+                    break
 
-        pygame.mouse.set_cursor(
-            pygame.SYSTEM_CURSOR_HAND if hovered_index is not None else pygame.SYSTEM_CURSOR_ARROW
-        )
+            wants_hand = hovered_index is not None
+            if wants_hand != cursor_is_hand:
+                pygame.mouse.set_cursor(
+                    pygame.SYSTEM_CURSOR_HAND if wants_hand else pygame.SYSTEM_CURSOR_ARROW
+                )
+                cursor_is_hand = wants_hand
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                return None
-            if event.type == pygame.KEYDOWN:
-                if event.key in CHOICES:
-                    return CHOICES[event.key]
-                if event.key == pygame.K_ESCAPE:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
                     return None
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if hovered_index is not None:
-                    return CHOICE_ORDER[hovered_index]
+                if event.type == pygame.KEYDOWN:
+                    if event.key in CHOICES:
+                        return CHOICES[event.key]
+                    if event.key == pygame.K_ESCAPE:
+                        return None
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if hovered_index is not None:
+                        return CHOICE_ORDER[hovered_index]
 
-        button_rects = renderer.draw(screen, hovered_index=hovered_index)
-        pygame.display.flip()
-        #loop runs 60fps
-        clock.tick(60)
+            button_rects = renderer.draw(screen, hovered_index=hovered_index)
+            pygame.display.flip()
+            #loop runs 60fps
+            clock.tick(60)
+    finally:
+        if cursor_is_hand:
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)

@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 
 import pygame
@@ -8,7 +9,6 @@ FALLBACK_FONTS = ("Inter", "Helvetica Neue", "Avenir Next", "Arial", "DejaVu San
 
 WEIGHTS = {
     "regular": "Inter-Regular.ttf",
-    "medium": "Inter-Medium.ttf",
     "semibold": "Inter-SemiBold.ttf",
     "bold": "Inter-Bold.ttf",
 }
@@ -24,9 +24,10 @@ INK_SOFT = (129, 118, 107)
 INK_FAINT = (168, 158, 148)
 ON_DARK = (252, 250, 248)
 
-ACCENT = (226, 155, 112)
-ACCENT_DARK = (210, 136, 92)
-ACCENT_SOFT = (247, 236, 228)
+ACCENT = (214, 116, 64)
+ACCENT_DARK = (191, 98, 50)
+ACCENT_SOFT = (247, 234, 225)
+STAR = (223, 158, 74)
 
 DIVIDER = (228, 220, 212)
 SHADOW = (120, 100, 84)
@@ -83,6 +84,44 @@ def rounded_shadow(surface, rect, radius, layers=((8, 14), (5, 20), (2, 26))):
 
 def blit_center(surface, text_surface, center):
     surface.blit(text_surface, text_surface.get_rect(center=center))
+
+
+def draw_star(surface, center, radius, color, scale=3):
+    inner = radius * 0.42
+    size = int(radius * 2 * scale) + 4
+    layer = pygame.Surface((size, size), pygame.SRCALPHA)
+    mid = size / 2
+
+    points = []
+    for index in range(10):
+        angle = -math.pi / 2 + index * math.pi / 5
+        length = (radius if index % 2 == 0 else inner) * scale
+        points.append((mid + math.cos(angle) * length, mid + math.sin(angle) * length))
+
+    pygame.draw.polygon(layer, color, points)
+    layer = pygame.transform.smoothscale(layer, (size // scale, size // scale))
+    surface.blit(layer, layer.get_rect(center=center))
+
+
+def draw_spinner(surface, center, radius, color, dots=8, scale=3):
+    ticks = pygame.time.get_ticks()
+    lead = int(ticks / 90) % dots
+
+    size = int((radius + 4) * 2 * scale)
+    layer = pygame.Surface((size, size), pygame.SRCALPHA)
+    mid = size / 2
+
+    for index in range(dots):
+        angle = -math.pi / 2 + index * (2 * math.pi / dots)
+        distance = (index - lead) % dots
+        alpha = int(235 * (1 - distance / dots) ** 1.6) + 20
+        dot_radius = (2.6 - 1.0 * (distance / dots)) * scale
+        x = mid + math.cos(angle) * radius * scale
+        y = mid + math.sin(angle) * radius * scale
+        pygame.draw.circle(layer, (*color, alpha), (x, y), dot_radius)
+
+    layer = pygame.transform.smoothscale(layer, (size // scale, size // scale))
+    surface.blit(layer, layer.get_rect(center=center))
 
 
 def lerp(color_a, color_b, t):

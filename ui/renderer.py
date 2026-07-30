@@ -17,9 +17,12 @@ from ui.theme import (
     INK_FAINT,
     INK_SOFT,
     ON_DARK,
+    STAR,
     SURFACE,
     TILE_COLORS,
     blit_center,
+    draw_spinner,
+    draw_star,
     font,
     lerp,
     rounded_shadow,
@@ -299,18 +302,18 @@ class MenuRenderer:
         return rects
 
     def _draw_button(self, surface, rect, number, label, description, primary, hovered):
-        if primary:
-            fill = ACCENT_DARK if hovered else ACCENT
+        if hovered:
+            fill = ACCENT
             label_color = ON_DARK
-            desc_color = lerp(ACCENT, ON_DARK, 0.72)
-            badge_fill, badge_text = lerp(fill, ON_DARK, 0.22), ON_DARK
+            desc_color = lerp(ACCENT, ON_DARK, 0.78)
+            badge_fill, badge_text = lerp(ACCENT, ON_DARK, 0.24), ON_DARK
             border = None
         else:
-            fill = lerp(SURFACE, ACCENT_SOFT, 0.55) if hovered else SURFACE
+            fill = SURFACE
             label_color = INK
             desc_color = INK_SOFT
             badge_fill, badge_text = lerp(CANVAS, INK_FAINT, 0.22), INK_SOFT
-            border = ACCENT_SOFT if hovered else DIVIDER
+            border = DIVIDER
 
         pygame.draw.rect(surface, fill, rect, border_radius=12)
         if border:
@@ -329,8 +332,13 @@ class MenuRenderer:
         label_surf = font(17, "semibold").render(label, True, label_color)
         desc_surf = font(12, "regular").render(description, True, desc_color)
 
-        surface.blit(label_surf, label_surf.get_rect(midleft=(text_x, rect.centery - 10)))
+        label_rect = label_surf.get_rect(midleft=(text_x, rect.centery - 10))
+        surface.blit(label_surf, label_rect)
         surface.blit(desc_surf, desc_surf.get_rect(midleft=(text_x, rect.centery + 12)))
+
+        if primary:
+            star_color = ON_DARK if hovered else STAR
+            draw_star(surface, (label_rect.right + 15, label_rect.centery), 7, star_color)
 
 
 class ComparisonRenderer:
@@ -343,7 +351,9 @@ class ComparisonRenderer:
         ("Best Tile", "Highest Tile", 0.19, "right"),
     )
 
-    def draw(self, screen, results, running=False):
+    AGENT_ORDER = ("Random", "Expectimax", "Expectimax + RL")
+
+    def draw(self, screen, results, running=False, progress=None):
         screen.fill(CANVAS)
         width = screen.get_width()
         margin = 34
@@ -353,19 +363,22 @@ class ComparisonRenderer:
         screen.blit(title, (margin, 40))
 
         if running:
-            note = "Running benchmark games, this takes a moment..."
+            draw_spinner(
+                screen,
+                (margin + title.get_width() + 26, 40 + title.get_height() // 2),
+                9,
+                ACCENT,
+            )
+
+        if running and progress and progress.get("name"):
+            played = progress.get("played", 0)
+            total = progress.get("total", 0)
+            note = f"Playing {progress['name']}, game {played} of {total}"
+        elif running:
+            note = "Starting benchmark..."
         else:
             note = "Average over the same number of games for each agent"
         screen.blit(font(13, "regular").render(note, True, INK_SOFT), (margin, 78))
-
-        if not results:
-            blit_center(
-                screen,
-                font(15, "regular").render("No results yet", True, INK_FAINT),
-                (width // 2, 240),
-            )
-            self._footer(screen, width)
-            return
 
         edges = []
         cursor = margin
@@ -388,36 +401,90 @@ class ComparisonRenderer:
             screen, DIVIDER, (margin, header_y + 18), (margin + table_width, header_y + 18)
         )
 
-        best_name = max(results, key=lambda name: results[name]["Average Score"])
+        rows = list(results.items())
+
+        # Show every agent up front, so the table has a visible shape from the
+        # first frame and finished agents appear as soon as they are done.
+        pending = [name for name in self.AGENT_ORDER if name not in results]
+        if not running:
+            pending = []
+
+        best_name = (
+            max(results, key=lambda name: results[name]["Average Score"])
+            if results
+            else None
+        )
 
         row_height = 54
         y = header_y + 18
-        for name, stats in results.items():
-            row = pygame.Rect(margin - 10, y, table_width + 20, row_height)
-            is_best = name == best_name
 
-            if is_best:
-                pygame.draw.rect(screen, ACCENT_SOFT, row, border_radius=8)
-
-            values = {"name": name, **stats}
-            for (_, key, _, align), (x, span) in zip(self.COLUMNS, edges):
-                raw = values.get(key, "")
-                text = f"{raw:,}" if isinstance(raw, (int, float)) else str(raw)
-                weight = "semibold" if is_best else "regular"
-                color = INK if is_best else INK_SOFT
-                surf = font(15, weight).render(text, True, color)
-                rect = surf.get_rect()
-                if align == "right":
-                    rect.midright = (x + span - 10, row.centery)
-                else:
-                    rect.midleft = (x, row.centery)
-                screen.blit(surf, rect)
-
+        for name, stats in rows:
+            self._row(screen, name, stats, margin, table_width, edges, y, row_height,
+                      is_best=(name == best_name and not running))
             y += row_height
-            if name != list(results)[-1]:
+            pygame.draw.line(screen, DIVIDER, (margin, y), (margin + table_width, y))
+
+        for name in pending:
+            active = bool(progress) and progress.get("name") == name
+            self._pending_row(screen, name, margin, table_width, edges, y, row_height,
+                              active=active, progress=progress if active else None)
+            y += row_height
+            if name != pending[-1]:
                 pygame.draw.line(screen, DIVIDER, (margin, y), (margin + table_width, y))
 
         self._footer(screen, width)
+
+    def _row(self, screen, name, stats, margin, table_width, edges, y, row_height, is_best):
+        row = pygame.Rect(margin - 10, y, table_width + 20, row_height)
+
+        if is_best:
+            pygame.draw.rect(screen, ACCENT_SOFT, row, border_radius=8)
+
+        values = {"name": name, **stats}
+        for (_, key, _, align), (x, span) in zip(self.COLUMNS, edges):
+            raw = values.get(key, "")
+            text = f"{raw:,}" if isinstance(raw, (int, float)) else str(raw)
+            weight = "semibold" if is_best else "regular"
+            color = INK if is_best else INK_SOFT
+            surf = font(15, weight).render(text, True, color)
+            rect = surf.get_rect()
+            if align == "right":
+                rect.midright = (x + span - 10, row.centery)
+            else:
+                rect.midleft = (x, row.centery)
+            screen.blit(surf, rect)
+
+    def _pending_row(self, screen, name, margin, table_width, edges, y, row_height,
+                     active, progress):
+        row = pygame.Rect(margin - 10, y, table_width + 20, row_height)
+        name_x, _ = edges[0]
+
+        color = INK_SOFT if active else INK_FAINT
+        weight = "semibold" if active else "regular"
+        surf = font(15, weight).render(name, True, color)
+        screen.blit(surf, surf.get_rect(midleft=(name_x, row.centery)))
+
+        if active and progress:
+            played = progress.get("played", 0)
+            total = progress.get("total", 1)
+            status = f"game {played} of {total}"
+        else:
+            status = "waiting"
+
+        status_surf = font(13, "regular").render(status, True, INK_FAINT)
+        second_x, second_span = edges[1]
+        screen.blit(status_surf, status_surf.get_rect(midleft=(second_x, row.centery)))
+
+        if active and progress:
+            total = max(1, progress.get("total", 1))
+            fraction = progress.get("played", 0) / total
+            bar_x, bar_span = edges[2]
+            bar_width = table_width - (bar_x - margin) - 10
+            track = pygame.Rect(bar_x, row.centery - 3, bar_width, 6)
+            pygame.draw.rect(screen, DIVIDER, track, border_radius=3)
+            if fraction > 0:
+                fill = pygame.Rect(track.x, track.y, int(track.width * fraction), track.height)
+                pygame.draw.rect(screen, ACCENT, fill, border_radius=3)
 
     def _footer(self, screen, width):
         hint = font(13, "regular").render("Press Esc to return to the menu", True, INK_FAINT)

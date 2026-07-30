@@ -21,7 +21,7 @@ def play_game(agent):
     }
 
 
-def benchmark(agent_factory):
+def benchmark(agent_factory, on_game=None):
     scores = []
     max_tiles = []
 
@@ -29,6 +29,8 @@ def benchmark(agent_factory):
         result = play_game(agent_factory())
         scores.append(result["score"])
         max_tiles.append(result["max_tile"])
+        if on_game is not None:
+            on_game(i + 1, NUM_GAMES)
 
     return {
         "Runs": NUM_GAMES,
@@ -38,23 +40,35 @@ def benchmark(agent_factory):
     }
 
 
-def compare_agents():
+def compare_agents(on_result=None, on_progress=None):
     # The trained network is loaded ONCE and shared by every game the RL agent
     # plays, so the RL row reflects the same weights as the training graph.
     network = load_value_function()
 
-    results = {
-        "Random": benchmark(RandomAgent),
-        "Expectimax": benchmark(
-            lambda: ExpectimaxAgent(depth=2)
-        ),
-    }
+    agents = [
+        ("Random", RandomAgent),
+        ("Expectimax", lambda: ExpectimaxAgent(depth=2)),
+    ]
 
     # Without a checkpoint the RL agent would be identical to the heuristic row,
     # which would be misleading in a comparison table, so it is omitted instead.
     if network is not None:
-        results["Expectimax + RL"] = benchmark(
-            lambda: ExpectimaxAgent(depth=2, network=network)
+        agents.append(
+            ("Expectimax + RL", lambda: ExpectimaxAgent(depth=2, network=network))
         )
+
+    results = {}
+    for name, factory in agents:
+        def report(done, total, name=name):
+            if on_progress is not None:
+                on_progress(name, done, total)
+
+        if on_progress is not None:
+            on_progress(name, 0, NUM_GAMES)
+
+        results[name] = benchmark(factory, on_game=report)
+
+        if on_result is not None:
+            on_result(name, results[name])
 
     return results

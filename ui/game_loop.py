@@ -1,6 +1,8 @@
 # This file is responsible for running pygame window, calling agents, updating game state and controlling speed
 # Team member responsible: Jayden
 
+import threading
+
 import pygame
 
 from agents.expectimax_rl_agent import ExpectimaxAgent
@@ -40,10 +42,28 @@ def run_comparison(screen):
     renderer = ComparisonRenderer()
     clock = pygame.time.Clock()
 
-    renderer.draw(screen, {}, running=True)
-    pygame.display.flip()
+    results = {}
+    progress = {}
+    lock = threading.Lock()
+    done = threading.Event()
 
-    results = compare_agents()
+    def on_result(name, stats):
+        with lock:
+            results[name] = stats
+
+    def on_progress(name, played, total):
+        with lock:
+            progress.clear()
+            progress.update({"name": name, "played": played, "total": total})
+
+    def work():
+        try:
+            compare_agents(on_result=on_result, on_progress=on_progress)
+        finally:
+            done.set()
+
+    worker = threading.Thread(target=work, daemon=True)
+    worker.start()
 
     while True:
         clock.tick(60)
@@ -55,82 +75,108 @@ def run_comparison(screen):
                 if event.key == pygame.K_ESCAPE:
                     return True
 
-        renderer.draw(screen, results)
+        with lock:
+            snapshot = dict(results)
+            current = dict(progress)
+
+        renderer.draw(
+            screen,
+            snapshot,
+            running=not done.is_set(),
+            progress=current if not done.is_set() else None,
+        )
         pygame.display.flip()
 
 
 def run_game_loop(screen, agent, agent_label=None):
-    game = Game()
     board_renderer = BoardRenderer()
     header_renderer = HeaderRenderer(agent_label=agent_label)
-    animator = TileAnimator()
-    animator.snapshot(game.board.grid)
-    best_score = 0
 
     board_left = (screen.get_width() - board_renderer.pixel_size) // 2
     board_top = HeaderRenderer.HEIGHT + 34
     board_offset = (board_left, board_top)
 
     clock = pygame.time.Clock()
-    idle_time = 0
-
-    game_over = False
-    restart_rect = pygame.Rect(0, 0, 0, 0)
+    best_score = 0
 
     while True:
-        dt = clock.tick(60)
+        game = Game()
+        animator = TileAnimator()
+        animator.snapshot(game.board.grid)
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                return False
+        idle_time = 0
+        game_over = False
+        restart = False
+        restart_rect = pygame.Rect(0, 0, 0, 0)
 
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if restart_rect.collidepoint(event.pos):
-                    return True
+        while not restart:
+            dt = clock.tick(60)
 
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                return True
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return False
 
-        animator.update(dt)
-        if animator.is_animating():
-            idle_time = 0
-        else:
-            idle_time += dt
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if restart_rect.collidepoint(event.pos):
+                        restart = True
 
-        if not game_over and not animator.is_animating() and idle_time >= POST_MOVE_PAUSE_MS:
-            old_grid = game.board.grid.copy()
-            action = agent.choose_action(old_grid)
-            changed = game.move(action)
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        return True
+                    if event.key == pygame.K_r:
+                        restart = True
 
-            if changed:
-                animator.start_move(old_grid, action, game.board.grid)
+            if restart:
+                break
 
-                if game.score > best_score:
-                    best_score = game.score
+            animator.update(dt)
+            if animator.is_animating():
+                idle_time = 0
+            else:
+                idle_time += dt
 
-            idle_time = 0
+            if not game_over and not animator.is_animating() and idle_time >= POST_MOVE_PAUSE_MS:
+                old_grid = game.board.grid.copy()
+                action = agent.choose_action(old_grid)
+                changed = game.move(action)
 
-            if game.is_game_over():
-                game_over = True
+                if changed:
+                    animator.start_move(old_grid, action, game.board.grid)
 
-        screen.fill(CANVAS)
-        restart_rect = header_renderer.draw(screen, game.score, best_score)
-        board_renderer.draw_frame(screen, animator.get_render_tiles(), top_left=board_offset)
+                    if game.score > best_score:
+                        best_score = game.score
 
-        if game_over:
-            _draw_game_over(screen, board_renderer, board_offset, game)
+                idle_time = 0
 
-        _draw_footer(screen)
+                if game.is_game_over():
+                    game_over = True
 
-        pygame.display.flip()
+            screen.fill(CANVAS)
+            restart_rect = header_renderer.draw(screen, game.score, best_score)
+            board_renderer.draw_frame(screen, animator.get_render_tiles(), top_left=board_offset)
+
+            if game_over:
+                _draw_game_over(screen, board_renderer, board_offset, game)
+
+            _draw_footer(screen)
+
+            pygame.display.flip()
+
+
+_overlay_cache = {}
 
 
 def _draw_game_over(screen, board_renderer, board_offset, game):
     size = board_renderer.pixel_size
-    overlay = pygame.Surface((size, size), pygame.SRCALPHA)
-    pygame.draw.rect(
-        overlay, (250, 248, 245, 205), overlay.get_rect(), border_radius=16
-    )
+
+    overlay = _overlay_cache.get(size)
+    if overlay is None:
+        overlay = pygame.Surface((size, size), pygame.SRCALPHA)
+        pygame.draw.rect(
+            overlay, (250, 248, 245, 205), overlay.get_rect(), border_radius=16
+        )
+        _overlay_cache[size] = overlay
+
     screen.blit(overlay, board_offset)
 
     center_x = board_offset[0] + size // 2
@@ -152,13 +198,13 @@ def _draw_game_over(screen, board_renderer, board_offset, game):
     )
     blit_center(
         screen,
-        font(13, "regular").render("Restart to play again", True, INK_SOFT),
+        font(13, "regular").render("Restart, or press R, to play again", True, INK_SOFT),
         (center_x, center_y + 38),
     )
 
 
 def _draw_footer(screen):
-    hint = font(12, "regular").render("Esc for the menu", True, INK_SOFT)
+    hint = font(12, "regular").render("R to restart, Esc for the menu", True, INK_SOFT)
     screen.blit(hint, hint.get_rect(center=(screen.get_width() // 2, screen.get_height() - 24)))
 
 
