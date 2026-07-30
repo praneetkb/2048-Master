@@ -15,8 +15,6 @@
 # agent. Both are needed for the report comparison, so they share the code path
 # and differ only in evaluate().
 
-import random
-
 import numpy as np
 
 from agents.agent import Agent
@@ -26,19 +24,23 @@ from game.score import points_after_merge
 
 class ExpectimaxAgent(Agent):
 
-    def __init__(self, depth=2, network=None, sample_cap=None, seed=None):
+    def __init__(self, depth=2, network=None):
         # network: a trained NTupleNetwork, or None to use the hand-written heuristic.
-        # sample_cap: max empty cells expanded per chance node. None = exhaustive
-        #             (deterministic, required for the depth comparison to be meaningful).
+
         self.depth = depth
         self.network = network
-        self.sample_cap = sample_cap
-        self.rng = random.Random(seed)
 
     # Start the Expectimax search and return the best move
     def choose_action(self, state):
-        best_action, _ = self.max_node(state, self.depth)
+        depth = self._adaptive_depth(state)
+        best_action, _ = self.max_node(state, depth)
         return best_action
+
+    def _adaptive_depth(self, state):
+        empty = len(empty_cells(state))
+        if empty <= 2:
+            return self.depth + 1
+        return self.depth
 
     # Returns (best_action, best_value) over all legal moves.
     # Value of a move = immediate merge reward + expected value of the afterstate.
@@ -72,17 +74,12 @@ class ExpectimaxAgent(Agent):
         if depth <= 0 or not cells:
             return self.evaluate(state)
 
-        if self.sample_cap is None or len(cells) <= self.sample_cap:
-            samples = cells
-        else:
-            samples = self.rng.sample(cells, self.sample_cap)
-
         total = 0.0
-        for (row, col) in samples:
+        for (row, col) in cells:
             for value, probability in ((2, 0.9), (4, 0.1)):
                 child = state.copy()
                 child[row, col] = value
-                spawn_probability = probability / len(samples)
+                spawn_probability = probability / len(cells)
                 _, child_value = self.max_node(child, depth)
                 total += spawn_probability * child_value
 
