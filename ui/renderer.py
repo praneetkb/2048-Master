@@ -3,38 +3,35 @@
 
 import pygame
 
+from ui.theme import (
+    ACCENT,
+    ACCENT_DARK,
+    ACCENT_SOFT,
+    BIG_TILE,
+    BOARD,
+    CANVAS,
+    CANVAS_COLOR,
+    DIVIDER,
+    EMPTY_TILE,
+    INK,
+    INK_FAINT,
+    INK_SOFT,
+    ON_DARK,
+    SURFACE,
+    TILE_COLORS,
+    blit_center,
+    font,
+    lerp,
+    rounded_shadow,
+)
 
 BOARD_SIZE = 4
 
-CANVAS_COLOR = (250, 248, 243)
-BOARD_COLOR = (145, 128, 112)
-EMPTY_TILE_COLOR = (187, 173, 156)
-TEXT_DARK = (105, 94, 82)
-TEXT_LIGHT = (249, 246, 242)
-
-HEADER_TEXT = (119, 110, 101)
-HEADER_BOX = (187, 173, 160)
-BUTTON_COLOR = (143, 122, 102)
-BUTTON_TEXT = (255, 255, 255)
-
-TILE_COLORS = {
-    0: EMPTY_TILE_COLOR,
-    2: (238, 228, 218),
-    4: (237, 221, 190),
-    8: (242, 177, 121),
-    16: (245, 149, 99),
-    32: (246, 124, 95),
-    64: (246, 94, 59),
-    128: (237, 207, 114),
-    256: (237, 204, 97),
-    512: (237, 200, 80),
-    1024: (237, 197, 63),
-    2048: (237, 194, 46),
-}
-LARGE_TILE_COLOR = (60, 58, 50)
-
-BOARD_SHADOW_COLOR = (75, 55, 40)
-FONT_CANDIDATES = ("Clear Sans", "Helvetica Neue", "Avenir Next", "Arial", "DejaVu Sans")
+TEXT_DARK = INK
+TEXT_LIGHT = ON_DARK
+HEADER_TEXT = INK_SOFT
+BOARD_COLOR = BOARD
+EMPTY_TILE_COLOR = EMPTY_TILE
 
 
 class BoardRenderer:
@@ -44,24 +41,20 @@ class BoardRenderer:
     def __init__(
         self,
         tile_size=111,
-        gap=10,
-        margin=10,
-        font_size=50,
-        font_name=None,
-        board_radius=22,
-        tile_radius=10,
+        gap=12,
+        margin=12,
+        font_size=48,
+        board_radius=16,
+        tile_radius=8,
         scale=2,
     ):
         self.tile_size = tile_size
         self.gap = gap
         self.margin = margin
         self.font_size = font_size
-        self.font_name = font_name
         self.board_radius = board_radius
         self.tile_radius = tile_radius
         self.scale = scale
-        self._fonts = {}
-        self._font_path = None
 
     # Returns the total board width/height in pixels.
     @property
@@ -108,55 +101,49 @@ class BoardRenderer:
         else:
             rect = base_rect
 
-        color = TILE_COLORS.get(value, LARGE_TILE_COLOR)
+        color = TILE_COLORS.get(value, BIG_TILE)
         pygame.draw.rect(surface, color, rect, border_radius=self.tile_radius)
         self._draw_text(surface, rect, value)
 
     # Draws board, shadow, and tile backgrounds on a smooth layer.
     def _draw_board_shapes(self, surface, grid, top_left):
         scale = max(1, int(self.scale))
-        shadow_margin = 10
-        layer_size = (self.pixel_size + 2 * shadow_margin, self.pixel_size + 2 * shadow_margin)
+        pad = 14
+        layer_size = (self.pixel_size + 2 * pad, self.pixel_size + 2 * pad)
         layer = pygame.Surface((layer_size[0] * scale, layer_size[1] * scale), pygame.SRCALPHA)
-        origin = (shadow_margin, shadow_margin)
+        origin = (pad, pad)
 
-        board_rect = self._scale_rect(pygame.Rect(origin[0], origin[1], self.pixel_size, self.pixel_size), scale)
-        self._draw_soft_shadow(layer, board_rect, self.board_radius * scale, scale)
-        pygame.draw.rect(layer, BOARD_COLOR, board_rect, border_radius=self.board_radius * scale)
+        board_rect = self._scale_rect(
+            pygame.Rect(origin[0], origin[1], self.pixel_size, self.pixel_size), scale
+        )
+        rounded_shadow(
+            layer,
+            board_rect,
+            self.board_radius * scale,
+            layers=((10 * scale, 16), (6 * scale, 22), (3 * scale, 28)),
+        )
+        pygame.draw.rect(layer, BOARD, board_rect, border_radius=self.board_radius * scale)
 
         for row in range(BOARD_SIZE):
             for col in range(BOARD_SIZE):
                 value = int(grid[row][col])
-                rect = self._tile_rect(origin, row, col)
-                self._draw_tile_shape(layer, rect, value, scale)
+                rect = self._scale_rect(self._tile_rect(origin, row, col), scale)
+                color = TILE_COLORS.get(value, BIG_TILE)
+                pygame.draw.rect(layer, color, rect, border_radius=self.tile_radius * scale)
 
         if scale > 1:
             layer = pygame.transform.smoothscale(layer, layer_size)
 
-        surface.blit(layer, (top_left[0] - shadow_margin, top_left[1] - shadow_margin))
-
-    # Draws a subtle layered shadow behind the board.
-    def _draw_soft_shadow(self, surface, rect, radius, scale):
-        for offset, alpha in ((7, 18), (5, 24), (3, 32)):
-            shadow = rect.move(0, offset * scale)
-            color = (*BOARD_SHADOW_COLOR, alpha)
-            pygame.draw.rect(surface, color, shadow, border_radius=radius)
-
-    # Draws one rounded tile with the color for its value.
-    def _draw_tile_shape(self, surface, rect, value, scale):
-        scaled_rect = self._scale_rect(rect, scale)
-        color = TILE_COLORS.get(value, LARGE_TILE_COLOR)
-        pygame.draw.rect(surface, color, scaled_rect, border_radius=self.tile_radius * scale)
+        surface.blit(layer, (top_left[0] - pad, top_left[1] - pad))
 
     # Draws the centered number for non-empty tiles.
     def _draw_text(self, surface, rect, value):
         if value == 0:
             return
 
-        text_color = TEXT_DARK if value <= 4 else TEXT_LIGHT
-        text = self._font_for(value).render(str(value), True, text_color)
-        text_rect = text.get_rect(center=(rect.centerx, rect.centery - 2))
-        surface.blit(text, text_rect)
+        color = INK if value <= 4 else ON_DARK
+        text = self._font_for(value).render(str(value), True, color)
+        surface.blit(text, text.get_rect(center=(rect.centerx, rect.centery - 1)))
 
     # Calculates the screen rectangle for one tile position.
     def _tile_rect(self, top_left, row, col):
@@ -170,47 +157,16 @@ class BoardRenderer:
 
     # Chooses and caches a font size that fits the tile value.
     def _font_for(self, value):
-        pygame.font.init()
         digits = len(str(value))
-
         if digits >= 5:
-            size = int(self.font_size * 0.58)
+            size = int(self.font_size * 0.56)
         elif digits == 4:
-            size = int(self.font_size * 0.70)
+            size = int(self.font_size * 0.68)
         elif digits == 3:
-            size = int(self.font_size * 0.82)
+            size = int(self.font_size * 0.80)
         else:
             size = self.font_size
-
-        if size not in self._fonts:
-            self._fonts[size] = self._load_font(size)
-
-        return self._fonts[size]
-
-    # Loads the preferred font at the requested size.
-    def _load_font(self, size):
-        font_path = self._resolved_font_path()
-        if font_path:
-            font = pygame.font.Font(font_path, size)
-        else:
-            font = pygame.font.SysFont(None, size, bold=True)
-        font.set_bold(True)
-        return font
-
-    # Finds the first available font from the preferred list.
-    def _resolved_font_path(self):
-        if self._font_path is not None:
-            return self._font_path
-
-        names = (self.font_name,) if self.font_name else FONT_CANDIDATES
-        for name in names:
-            path = pygame.font.match_font(name, bold=True)
-            if path:
-                self._font_path = path
-                return self._font_path
-
-        self._font_path = ""
-        return None
+        return font(size, "bold")
 
     # Accepts either a Board object or a raw 4x4 grid.
     def _grid_from(self, board):
@@ -231,79 +187,61 @@ class BoardRenderer:
 # Header display above the board - game title, score, best score, and restart button
 class HeaderRenderer:
 
-    def __init__(self):
-        pygame.font.init()
+    HEIGHT = 84
+    BOX_WIDTH = 104
+    BOX_HEIGHT = 58
+    BUTTON_WIDTH = 96
 
-        self.title_font = pygame.font.SysFont("Arial", 42, bold=True)
-        self.label_font = pygame.font.SysFont("Arial", 16, bold=True)
-        self.score_font = pygame.font.SysFont("Arial", 22, bold=True)
+    def __init__(self, agent_label=None):
+        self.agent_label = agent_label
 
-    def draw(self, surface, score, best_score):
+    def draw(self, surface, score, best_score, left=24, top=22, right_margin=24):
+        right = surface.get_width() - right_margin
 
-        # Game title 
-        title = self.title_font.render("2048 Master", True, HEADER_TEXT)
-        surface.blit(title, (20, 20))
+        if self.agent_label:
+            tag = font(13, "semibold").render(self.agent_label.upper(), True, ACCENT_DARK)
+            tag_rect = tag.get_rect()
+            pill = pygame.Rect(0, 0, tag_rect.width + 20, tag_rect.height + 10)
+            pill.midleft = (left, top + self.BOX_HEIGHT // 2)
+            pygame.draw.rect(surface, ACCENT_SOFT, pill, border_radius=pill.height // 2)
+            blit_center(surface, tag, pill.center)
+
+        # Restart button
+        restart = pygame.Rect(0, 0, self.BUTTON_WIDTH, self.BOX_HEIGHT)
+        restart.topright = (right, top)
+        pygame.draw.rect(surface, ACCENT, restart, border_radius=10)
+        blit_center(
+            surface,
+            font(14, "semibold").render("Restart", True, ON_DARK),
+            restart.center,
+        )
+
+        # Best score box
+        best_box = pygame.Rect(0, 0, self.BOX_WIDTH, self.BOX_HEIGHT)
+        best_box.topright = (restart.left - 10, top)
+        self._score_box(surface, best_box, "BEST", best_score)
 
         # Score box
-        self._draw_score_box(
-            surface,
-            x=300,
-            y=15,
-            label="SCORE",
-            value=score
-        )
-
-        # Best score box 
-        self._draw_score_box(
-            surface,
-            x=410,
-            y=15,
-            label="BEST",
-            value=best_score
-        )
-
-        # Restart button 
-        restart_rect = pygame.Rect(530, 15, 120, 60)
-
-        pygame.draw.rect(
-            surface,
-            BUTTON_COLOR,
-            restart_rect,
-            border_radius=8
-        )
-
-        text = self.label_font.render("Restart", True, BUTTON_TEXT)
-
-        text_rect = text.get_rect(center=restart_rect.center)
-
-        surface.blit(text, text_rect)
+        score_box = pygame.Rect(0, 0, self.BOX_WIDTH, self.BOX_HEIGHT)
+        score_box.topright = (best_box.left - 10, top)
+        self._score_box(surface, score_box, "SCORE", score)
 
         # Return rectangle so the game loop can detect mouse clicks later
-        return restart_rect
-    
-    def _draw_score_box(self, surface, x, y, label, value):
+        return restart
 
-        box = pygame.Rect(x, y, 95, 60)
+    def _score_box(self, surface, box, label, value):
+        pygame.draw.rect(surface, SURFACE, box, border_radius=10)
+        pygame.draw.rect(surface, DIVIDER, box, width=1, border_radius=10)
 
-        pygame.draw.rect(
+        blit_center(
             surface,
-            HEADER_BOX,
-            box,
-            border_radius=8
+            font(11, "semibold").render(label, True, INK_FAINT),
+            (box.centerx, box.y + 17),
         )
-
-        label_text = self.label_font.render(label, True, BUTTON_TEXT)
-
-        value_text = self.score_font.render(str(value), True, BUTTON_TEXT)
-
-        surface.blit(
-            label_text,
-            label_text.get_rect(center=(box.centerx, box.y + 16))
-        )
-
-        surface.blit(
-            value_text,
-            value_text.get_rect(center=(box.centerx, box.y + 42))
+        blit_center(
+            surface,
+            font(21, "bold").render(f"{value:,}", True, INK),
+            (box.centerx, box.y + 39),
         )
 
 
@@ -311,129 +249,176 @@ class HeaderRenderer:
 class MenuRenderer:
 
     OPTIONS = (
-        "Random Agent",
-        "Expectimax (Heuristic)",
-        "Expectimax + TD Learning",
-        "Compare Performance",
+        ("Random Agent", "Picks a legal move at random"),
+        ("Expectimax", "Hand-written heuristic evaluation"),
+        ("Expectimax + TD Learning", "Learned N-tuple value function"),
+        ("Compare Performance", "Benchmark all three agents"),
     )
 
-    BUTTON_WIDTH = 420
-    BUTTON_HEIGHT = 78
-    BUTTON_GAP = 20
-    FIRST_BUTTON_Y = 240
+    PRIMARY = 2
 
-    def __init__(self):
-        pygame.font.init()
-
-        self.title_font = pygame.font.SysFont("Arial", 48, bold=True)
-        self.subtitle_font = pygame.font.SysFont("Arial", 18)
-        self.option_font = pygame.font.SysFont("Arial", 23, bold=True)
-        self.badge_font = pygame.font.SysFont("Arial", 22, bold=True)
-        self.hint_font = pygame.font.SysFont("Arial", 15)
+    BUTTON_WIDTH = 440
+    BUTTON_HEIGHT = 72
+    BUTTON_GAP = 12
+    TOP = 208
 
     def draw(self, surface, hovered_index=None):
-        surface.fill(CANVAS_COLOR)
+        surface.fill(CANVAS)
         width = surface.get_width()
+        center_x = width // 2
 
-        title = self.title_font.render("2048 Master", True, HEADER_TEXT)
-        surface.blit(title, title.get_rect(center=(width // 2, 100)))
+        title = font(46, "bold").render("2048", True, INK)
+        surface.blit(title, title.get_rect(center=(center_x, 96)))
 
-        subtitle = self.subtitle_font.render(
-            "Watch an AI agent play", True, TEXT_DARK
+        subtitle = font(16, "regular").render(
+            "Watch a reinforcement learning agent play", True, INK_SOFT
         )
-        surface.blit(subtitle, subtitle.get_rect(center=(width // 2, 150)))
+        surface.blit(subtitle, subtitle.get_rect(center=(center_x, 134)))
 
         rects = []
-        for index, label in enumerate(self.OPTIONS):
+        for index, (label, description) in enumerate(self.OPTIONS):
             rect = pygame.Rect(0, 0, self.BUTTON_WIDTH, self.BUTTON_HEIGHT)
-            rect.centerx = width // 2
-            rect.y = self.FIRST_BUTTON_Y + index * (self.BUTTON_HEIGHT + self.BUTTON_GAP)
+            rect.centerx = center_x
+            rect.y = self.TOP + index * (self.BUTTON_HEIGHT + self.BUTTON_GAP)
             rects.append(rect)
-
             self._draw_button(
                 surface,
                 rect,
                 number=index + 1,
                 label=label,
+                description=description,
+                primary=(index == self.PRIMARY),
                 hovered=(index == hovered_index),
             )
 
-        hint_y = self.FIRST_BUTTON_Y + len(self.OPTIONS) * (self.BUTTON_HEIGHT + self.BUTTON_GAP) + 6
-        keys = ", ".join(str(index + 1) for index in range(len(self.OPTIONS)))
-        hint = self.hint_font.render(f"Click an option, or press {keys}", True, HEADER_TEXT)
-        surface.blit(hint, hint.get_rect(center=(width // 2, hint_y)))
+        hint_y = rects[-1].bottom + 30
+        keys = ", ".join(str(i + 1) for i in range(len(self.OPTIONS)))
+        hint = font(13, "regular").render(f"Click, or press {keys}", True, INK_FAINT)
+        surface.blit(hint, hint.get_rect(center=(center_x, hint_y)))
 
         return rects
 
-    def _draw_button(self, surface, rect, number, label, hovered):
-        if hovered:
-            fill, text_color = BUTTON_COLOR, BUTTON_TEXT
+    def _draw_button(self, surface, rect, number, label, description, primary, hovered):
+        if primary:
+            fill = ACCENT_DARK if hovered else ACCENT
+            label_color = ON_DARK
+            desc_color = lerp(ACCENT, ON_DARK, 0.72)
+            badge_fill, badge_text = lerp(fill, ON_DARK, 0.22), ON_DARK
+            border = None
         else:
-            fill, text_color = HEADER_BOX, BUTTON_TEXT
+            fill = lerp(SURFACE, ACCENT_SOFT, 0.55) if hovered else SURFACE
+            label_color = INK
+            desc_color = INK_SOFT
+            badge_fill, badge_text = lerp(CANVAS, INK_FAINT, 0.22), INK_SOFT
+            border = ACCENT_SOFT if hovered else DIVIDER
 
-        pygame.draw.rect(surface, fill, rect, border_radius=14)
+        pygame.draw.rect(surface, fill, rect, border_radius=12)
+        if border:
+            pygame.draw.rect(surface, border, rect, width=1, border_radius=12)
 
-        badge_rect = pygame.Rect(0, 0, 44, 44)
-        badge_rect.center = (rect.left + 44, rect.centery)
-        pygame.draw.rect(surface, CANVAS_COLOR, badge_rect, border_radius=10)
-        badge = self.badge_font.render(str(number), True, TEXT_DARK)
-        surface.blit(badge, badge.get_rect(center=badge_rect.center))
+        badge = pygame.Rect(0, 0, 30, 30)
+        badge.center = (rect.left + 34, rect.centery)
+        pygame.draw.rect(surface, badge_fill, badge, border_radius=8)
+        blit_center(
+            surface,
+            font(14, "semibold").render(str(number), True, badge_text),
+            badge.center,
+        )
 
-        label_surf = self.option_font.render(label, True, text_color)
-        surface.blit(label_surf, label_surf.get_rect(midleft=(rect.left + 82, rect.centery)))
+        text_x = rect.left + 62
+        label_surf = font(17, "semibold").render(label, True, label_color)
+        desc_surf = font(12, "regular").render(description, True, desc_color)
+
+        surface.blit(label_surf, label_surf.get_rect(midleft=(text_x, rect.centery - 10)))
+        surface.blit(desc_surf, desc_surf.get_rect(midleft=(text_x, rect.centery + 12)))
+
 
 class ComparisonRenderer:
 
-    def __init__(self):
-        self.title_font = pygame.font.SysFont("arial", 34, bold=True)
-        self.header_font = pygame.font.SysFont("arial", 24, bold=True)
-        self.font = pygame.font.SysFont("arial", 22)
+    COLUMNS = (
+        ("Agent", "name", 0.30, "left"),
+        ("Runs", "Runs", 0.13, "right"),
+        ("Avg Score", "Average Score", 0.19, "right"),
+        ("Best Score", "Best Score", 0.19, "right"),
+        ("Best Tile", "Highest Tile", 0.19, "right"),
+    )
 
-    def draw(self, screen, results):
-        screen.fill(CANVAS_COLOR)
-        title = self.title_font.render(
-            "Agent Performance Comparison",
-            True,
-            (119, 110, 101),
+    def draw(self, screen, results, running=False):
+        screen.fill(CANVAS)
+        width = screen.get_width()
+        margin = 34
+        table_width = width - 2 * margin
+
+        title = font(28, "bold").render("Agent Comparison", True, INK)
+        screen.blit(title, (margin, 40))
+
+        if running:
+            note = "Running benchmark games, this takes a moment..."
+        else:
+            note = "Average over the same number of games for each agent"
+        screen.blit(font(13, "regular").render(note, True, INK_SOFT), (margin, 78))
+
+        if not results:
+            blit_center(
+                screen,
+                font(15, "regular").render("No results yet", True, INK_FAINT),
+                (width // 2, 240),
+            )
+            self._footer(screen, width)
+            return
+
+        edges = []
+        cursor = margin
+        for _, _, fraction, _ in self.COLUMNS:
+            span = table_width * fraction
+            edges.append((cursor, span))
+            cursor += span
+
+        header_y = 128
+        for (label, _, _, align), (x, span) in zip(self.COLUMNS, edges):
+            surf = font(12, "semibold").render(label.upper(), True, INK_FAINT)
+            rect = surf.get_rect()
+            if align == "right":
+                rect.midright = (x + span - 10, header_y)
+            else:
+                rect.midleft = (x, header_y)
+            screen.blit(surf, rect)
+
+        pygame.draw.line(
+            screen, DIVIDER, (margin, header_y + 18), (margin + table_width, header_y + 18)
         )
 
-        screen.blit(title, (70, 40))
+        best_name = max(results, key=lambda name: results[name]["Average Score"])
 
-        headers = [
-            "Agent",
-            "Runs",
-            "Avg Score",
-            "Best Score",
-            "Highest Tile",
-        ]
-
-        x_positions = [30, 150, 260, 390, 520]
-
-        for x, h in zip(x_positions, headers):
-            txt = self.header_font.render(h, True, (119,110,101))
-            screen.blit(txt, (x, 120))
-
-        y = 180
-
+        row_height = 54
+        y = header_y + 18
         for name, stats in results.items():
-            values = [
-                name,
-                str(stats["Runs"]),
-                str(stats["Average Score"]),
-                str(stats["Best Score"]),
-                str(stats["Highest Tile"]),
-            ]
+            row = pygame.Rect(margin - 10, y, table_width + 20, row_height)
+            is_best = name == best_name
 
-            for x, value in zip(x_positions, values):
-                txt = self.font.render(value, True, (80,80,80))
-                screen.blit(txt, (x, y))
+            if is_best:
+                pygame.draw.rect(screen, ACCENT_SOFT, row, border_radius=8)
 
-            y += 55
+            values = {"name": name, **stats}
+            for (_, key, _, align), (x, span) in zip(self.COLUMNS, edges):
+                raw = values.get(key, "")
+                text = f"{raw:,}" if isinstance(raw, (int, float)) else str(raw)
+                weight = "semibold" if is_best else "regular"
+                color = INK if is_best else INK_SOFT
+                surf = font(15, weight).render(text, True, color)
+                rect = surf.get_rect()
+                if align == "right":
+                    rect.midright = (x + span - 10, row.centery)
+                else:
+                    rect.midleft = (x, row.centery)
+                screen.blit(surf, rect)
 
-        hint = self.font.render(
-            "Press ESC to return to menu",
-            True,
-            (119,110,101)
-        )
+            y += row_height
+            if name != list(results)[-1]:
+                pygame.draw.line(screen, DIVIDER, (margin, y), (margin + table_width, y))
 
-        screen.blit(hint, (220, 620))
+        self._footer(screen, width)
+
+    def _footer(self, screen, width):
+        hint = font(13, "regular").render("Press Esc to return to the menu", True, INK_FAINT)
+        screen.blit(hint, hint.get_rect(center=(width // 2, screen.get_height() - 38)))

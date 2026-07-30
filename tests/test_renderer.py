@@ -84,8 +84,9 @@ class TestBoardRenderer(unittest.TestCase):
         )
 
         self.assertIsInstance(restart_rect, pygame.Rect)
-        self.assertEqual(restart_rect.width, 120)
-        self.assertEqual(restart_rect.height, 60)
+        self.assertEqual(restart_rect.width, HeaderRenderer.BUTTON_WIDTH)
+        self.assertEqual(restart_rect.height, HeaderRenderer.BOX_HEIGHT)
+        self.assertLessEqual(restart_rect.right, surface.get_width())
 
     def test_menu_renderer_draws(self):
         renderer = MenuRenderer()

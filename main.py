@@ -1,6 +1,9 @@
+# Main program entry point. Shows the menu, then runs the chosen agent.
+# Team member responsible: João
+
 import pygame
 
-from ui.game_loop import get_agent, run_game_loop, run_comparison
+from ui.game_loop import AGENT_LABELS, get_agent, run_game_loop, run_comparison
 from ui.menu import run_menu
 
 WINDOW_WIDTH = 700
@@ -28,7 +31,7 @@ def main():
         if agent is None:
             continue
 
-        if not run_game_loop(screen, agent):
+        if not run_game_loop(screen, agent, agent_label=AGENT_LABELS.get(choice)):
             break
 
     pygame.quit()
