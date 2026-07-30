@@ -1,5 +1,0 @@
-- `acc1_tuple_definitions.png` (agents/n_tuple_network.py:23-39): The 17 tuple patterns: 4 rows, 4 columns, 9 overlapping 2x2 squares.
-- `acc1_feature_indices.png` (agents/n_tuple_network.py:167-184): Board to lookup-table indices, over all 8 symmetries at once.
-- `acc1_value_and_update.png` (agents/n_tuple_network.py:181-198): V(s) sums one entry per tuple per symmetry; update() spreads the TD error back over exactly those entries.
-- `acc2_td_update.png` (training/td_learning.py:108-133): The TD(0) update over afterstates.
-- `acc3_evaluate.png` (agents/expectimax_rl_agent.py:90-97): One search, two evaluation functions: the learned value function when a network is present, the original heuristic when it is not.
