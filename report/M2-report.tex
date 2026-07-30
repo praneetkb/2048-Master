@@ -10,7 +10,7 @@
 \usepackage{enumitem}
 \usepackage{array}
 \usepackage{booktabs}
-\usepackage[hidelinks]{hyperref}
+\usepackage{hyperref}
 \usepackage{fontspec}
 \usepackage{microtype}
 
@@ -27,7 +27,10 @@
 % at this weight, and near-black reads calmer without losing contrast.
 \definecolor{ink}{HTML}{1A1A1A}
 \definecolor{rulegray}{HTML}{D8D8D8}
+\definecolor{linkblue}{HTML}{1B4F9C}
 \color{ink}
+
+\hypersetup{colorlinks=true, urlcolor=linkblue, linkcolor=linkblue}
 
 \titleformat{\section}{\headingfont\large\color{ink}}{}{0pt}{}
 \titlespacing*{\section}{0pt}{1.8em}{0.6em}
