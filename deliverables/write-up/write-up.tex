@@ -1,0 +1,77 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=0.95in]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[table]{xcolor}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{fontspec}
+\usepackage{microtype}
+\usepackage{tikz}
+
+\setmainfont{Inter-Regular.ttf}[
+  Path = fonts/,
+  BoldFont = Inter-SemiBold.ttf,
+  ItalicFont = Inter-Italic.ttf,
+]
+
+\newfontfamily\headingfont{Inter-SemiBold.ttf}[Path = fonts/]
+
+\definecolor{ink}{HTML}{1A1A1A}
+\definecolor{rulegray}{HTML}{D8D8D8}
+\definecolor{linkblue}{HTML}{1B4F9C}
+\definecolor{shotborder}{HTML}{BFBFBF}
+\color{ink}
+
+\hypersetup{colorlinks=true, urlcolor=linkblue, linkcolor=linkblue}
+
+\titleformat{\section}{\headingfont\large\color{ink}}{}{0pt}{}
+\titlespacing*{\section}{0pt}{1.2em}{0.45em}
+\titleformat{\subsection}{\headingfont\normalsize\color{ink}}{}{0pt}{}
+\titlespacing*{\subsection}{0pt}{1.0em}{0.3em}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em}
+\linespread{1.06}
+
+\renewcommand{\arraystretch}{1.35}
+\arrayrulecolor{rulegray}
+
+\setlength{\textfloatsep}{0.5em}
+\setlength{\intextsep}{0.5em}
+\setlength{\abovecaptionskip}{0pt}
+
+\newsavebox{\shotbox}
+\newlength{\shotwd}
+\newlength{\shotht}
+\newcommand{\codeshot}[2][\textwidth]{%
+  \sbox{\shotbox}{\includegraphics[width=#1]{#2}}%
+  \settowidth{\shotwd}{\usebox{\shotbox}}%
+  \settoheight{\shotht}{\usebox{\shotbox}}%
+  \begin{tikzpicture}
+    \begin{scope}
+      \clip[rounded corners=4pt] (0,0) rectangle (\shotwd,\shotht);
+      \node[anchor=south west,inner sep=0pt] at (0,0) {\usebox{\shotbox}};
+    \end{scope}
+    \draw[rounded corners=4pt,draw=shotborder,line width=0.5pt] (0,0) rectangle (\shotwd,\shotht);
+  \end{tikzpicture}%
+}
+
+\graphicspath{{images/}}
+
+\begin{document}
+
+\begin{center}
+{\headingfont\LARGE\color{ink} CMPT 310 - Project Write-Up}
+\end{center}
+\vspace{1em}
+
+\section*{System Explanation}
+
+\end{document}
