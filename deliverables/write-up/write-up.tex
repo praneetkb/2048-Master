@@ -10,6 +10,7 @@
 \usepackage{enumitem}
 \usepackage{array}
 \usepackage{booktabs}
+\usepackage{caption}
 \usepackage{hyperref}
 \usepackage{fontspec}
 \usepackage{microtype}
@@ -32,12 +33,14 @@
 \hypersetup{colorlinks=true, urlcolor=linkblue, linkcolor=linkblue}
 
 \titleformat{\section}{\headingfont\large\color{ink}}{}{0pt}{}
-\titlespacing*{\section}{0pt}{1.2em}{0.45em}
+\titlespacing*{\section}{0pt}{1.0em}{0.4em}
 \titleformat{\subsection}{\headingfont\normalsize\color{ink}}{}{0pt}{}
-\titlespacing*{\subsection}{0pt}{1.0em}{0.3em}
+\titlespacing*{\subsection}{0pt}{0.7em}{0.15em}
+
+\captionsetup{font=small, labelfont={bf}, labelsep=period, skip=5pt}
 
 \setlength{\parindent}{0pt}
-\setlength{\parskip}{0.5em}
+\setlength{\parskip}{0.45em}
 \linespread{1.06}
 
 \renewcommand{\arraystretch}{1.35}
@@ -45,7 +48,6 @@
 
 \setlength{\textfloatsep}{0.5em}
 \setlength{\intextsep}{0.5em}
-\setlength{\abovecaptionskip}{0pt}
 
 \newsavebox{\shotbox}
 \newlength{\shotwd}
@@ -63,15 +65,117 @@
   \end{tikzpicture}%
 }
 
+\usetikzlibrary{positioning,arrows.meta,calc}
+
 \graphicspath{{images/}}
 
 \begin{document}
 
 \begin{center}
-{\headingfont\LARGE\color{ink} CMPT 310 - Project Write-Up}
+{\headingfont\LARGE\color{ink} Project Write-Up}\\[0.35em]
+{\headingfont\normalsize\color{ink} Group 1}
 \end{center}
 \vspace{1em}
 
 \section*{System Explanation}
+
+\subsection*{What our system does}
+
+2048 is a sliding puzzle on a 4×4 grid. Every move pushes all the tiles in one direction, and two tiles with the same number merge into one worth double, adding that value to the score. The game then drops a new 2 or 4 on a random empty cell, and it ends when the board is full and nothing can merge. Space runs out fast, so you have to keep merging into larger tiles to stay alive, and reaching the 2048 tile counts as winning.
+
+Our system plays the game by itself: it takes the current board, returns one legal move, and repeats until no move changes the board. We wrote the engine ourselves, including movement and merging, merge scoring, the random 2 (90\%) or 4 (10\%) spawn, and the game-over check.
+
+\subsection*{What AI methods we use}
+
+We use two methods from the course. The first is reinforcement learning: TD(0) over an N-tuple network, which learns a value function $V(s)$ from self-play. The second is Expectimax, the chance-node version of the adversarial search we covered in class, which uses that value function to look ahead through the random spawns.
+
+\subsection*{The pipeline}
+
+We train the value function separately and save it to a file. During a game the agent only reads that file, so the two halves are independent and nothing is learned while playing.
+
+\begin{figure}[H]
+\centering
+\vspace{0.5em}
+\hyphenpenalty=10000\exhyphenpenalty=10000\relax
+\begin{tikzpicture}[
+  font=\scriptsize,
+  node distance=2.6mm and 7mm,
+  proc/.style={rectangle, draw, fill=black!2, align=center,
+    text width=53mm, minimum height=5mm, inner sep=2.5pt},
+  io/.style={proc, rounded corners=3pt, fill=black!6},
+  ckpt/.style={rectangle, rounded corners=3pt, draw, dashed, align=center,
+    text width=19mm, minimum height=5mm, inner sep=2.5pt},
+  lane/.style={font=\headingfont\small},
+  arr/.style={-{Latex[length=1.8mm]}, semithick}
+]
+  \node[io]   (obs)   {Self-play board: 4×4 grid of tile values};
+  \node[proc] (enc)   [below=of obs] {Preprocessing: each cell becomes its tile rank
+    $\log_2$, so four cells form a base-16 index};
+  \node[proc] (net)   [below=of enc] {N-tuple network (the model): 17 four-cell patterns,
+    one 65,536-entry table each, read over 8 symmetries};
+  \node[proc] (td)    [below=of net] {TD(0) update: next reward plus $V$ of the next
+    afterstate, spread over 136 entries};
+
+  \node[lane] (lgt) [above=3mm of obs] {Offline training, run once};
+
+  \node[io]   (board) [right=36mm of obs] {Current 4×4 board during a game};
+  \node[proc] (search)[below=of board] {Expectimax: max node over legal moves,
+    chance node over spawns (2: 0.9, 4: 0.1)};
+  \node[proc] (leaf)  [below=of search] {Leaves are afterstates scored by $V(s)$;
+    depth 2, deepening to 3 when 2 cells are empty};
+  \node[io]   (out)   [below=of leaf] {Output: one of the four moves};
+
+  \node[lane] (lgp) [above=3mm of board] {Online play, every move};
+
+  \node[ckpt] (cp) at ($(td.east)!0.5!(leaf.west)$)
+    {saved value function \texttt{.npz}};
+
+  \draw[arr] (obs) -- (enc);
+  \draw[arr] (enc) -- (net);
+  \draw[arr] (net) -- (td);
+  \draw[arr] (board) -- (search);
+  \draw[arr] (search) -- (leaf);
+  \draw[arr] (leaf) -- (out);
+  \draw[arr, dashed] ([yshift=-3mm]td.east) -| (cp.south);
+  \draw[arr, dashed] (cp.north) |- (leaf.west);
+  \draw[arr] (td.west) -- ++(-4mm,0) |- (obs.west)
+    node[pos=0.25, left, align=right, font=\scriptsize] {greedy\\self-play};
+\end{tikzpicture}
+\caption{The two pipelines. Training writes the value function once, and play reads it on every move.}
+\end{figure}
+
+Both halves meet on afterstates, the boards you get after a move but before the spawn. A move in 2048 is deterministic and only the spawn is random, so the afterstate is the last position we can evaluate before luck enters. While training, we correct the value of the afterstate we just left using the reward of the next move plus the value of the next afterstate, or zero if the game ended there. The search stops at that same point, so the learned $V$ goes straight into Expectimax with nothing to convert. The eight board symmetries are what make training affordable, since every position we see updates all 136 shared entries at once.
+
+\subsection*{Results}
+
+We recorded the average score of every block of 1,000 self-play episodes, then played the finished agent against two baselines for 30 games each in the same environment.
+
+\begin{figure}[H]
+\centering
+\codeshot[0.50\textwidth]{training_curve.png}
+\caption{Average score per 1,000 training episodes. Self-play score rises from 8,384 to 24,382.}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\setlength{\tabcolsep}{4pt}
+\small
+\begin{tabular}{lccccccc}
+\toprule
+\textbf{Agent} & \textbf{Games} & \textbf{Avg} & \textbf{Median} & \textbf{Best} & \textbf{Best tile} & \textbf{Reached 2048} & \textbf{ms/move} \\
+\midrule
+Random & 30 & 1,178 & 990 & 3,076 & 256 & 0/30 & 0.0 \\
+Expectimax (heuristic) & 30 & 14,724 & 15,698 & 27,308 & 2,048 & 5/30 & 8.8 \\
+Expectimax + RL & 30 & 62,244 & 66,646 & 120,744 & 8,192 & 30/30 & 12.9 \\
+\bottomrule
+\end{tabular}
+\caption{The same search with a learned value function instead of a hand-written one, on the final code.}
+\end{table}
+
+Swapping the hand-written evaluation for the learned one, inside the exact same search, multiplies the average score by 4.2 and takes the agent from 5 wins in 30 games to 30, at about 4 extra milliseconds per move.
+
+\subsection*{Limitations and what we did about them}
+
+Three things still limit the agent. Learning starts slowly, because every TD update is divided among all 136 entries it touches, so the real step per weight is much smaller than $\alpha$ suggests; our first rate of 0.01 only reached about 15,500 after 10,000 episodes, and we settled on 0.05 after measuring both. Fixed depth 2 is also weakest exactly where games are lost, since on a nearly full board one bad spawn can leave no good move and a two-ply search sees only one spawn ahead. Two or fewer empty cells make the chance node small, so we deepen to 3 precisely there, which raises the cost from roughly 8 to 13 milliseconds per move and stays fast enough to watch. Finally, the value function knows nothing about board structure beyond its 17 local patterns, which is why we still need the search: playing greedily with no lookahead, the same network averages about 25,200 and wins half its games, against 62,244 and 30 out of 30 inside Expectimax. We kept the heuristic baseline for the same reason, to separate what learning contributes from what search does.
 
 \end{document}
