@@ -74,9 +74,9 @@
 
 \subsection{What our system does}
 
-2048 is a sliding puzzle on a 4×4 grid. Every move pushes all the tiles in one direction, and two tiles with the same number merge into one worth double, adding that value to the score. The game then drops a new 2 or 4 on a random empty cell, and it ends when the board is full and nothing can merge. Space runs out fast, so you have to keep merging into larger tiles to stay alive, and reaching the 2048 tile counts as winning.
+2048 is a sliding puzzle on a 4×4 grid. Every move pushes all the tiles in one direction, and when two tiles with the same number collide, they merge into one tile, adding the merged value to the score. After every move, the game adds a tile valued 2 or 4 on a random empty cell. The game ends when the board is full and no movement of tiles can happen.
 
-Our system plays the game by itself: it takes the current board, returns one legal move, and repeats until no move changes the board. We wrote the engine ourselves, including movement and merging, merge scoring, the random 2 (90\%) or 4 (10\%) spawn, and the game-over check.
+Our system plays the game by itself: it takes the current board, returns one legal move, and repeats until no move changes the board. We wrote the engine ourselves, including tile movement and merging, score and rewards, the random 2 (90\%) or 4 (10\%) tile spawn, and the game-over check.
 
 \subsection{What AI methods we use}
 
