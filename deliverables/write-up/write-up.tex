@@ -10,6 +10,7 @@
 \usepackage{enumitem}
 \usepackage{array}
 \usepackage{booktabs}
+\usepackage{longtable}
 \usepackage{caption}
 \usepackage{hyperref}
 \usepackage{fontspec}
@@ -177,5 +178,54 @@ Swapping the hand-written evaluation for the learned one, inside the exact same 
 \subsection*{Limitations and what we did about them}
 
 Three things still limit the agent. Learning starts slowly, because every TD update is divided among all 136 entries it touches, so the real step per weight is much smaller than $\alpha$ suggests; our first rate of 0.01 only reached about 15,500 after 10,000 episodes, and we settled on 0.05 after measuring both. Fixed depth 2 is also weakest exactly where games are lost, since on a nearly full board one bad spawn can leave no good move and a two-ply search sees only one spawn ahead. Two or fewer empty cells make the chance node small, so we deepen to 3 precisely there, which raises the cost from roughly 8 to 13 milliseconds per move and stays fast enough to watch. Finally, the value function knows nothing about board structure beyond its 17 local patterns, which is why we still need the search: playing greedily with no lookahead, the same network averages about 25,200 and wins half its games, against 62,244 and 30 out of 30 inside Expectimax. We kept the heuristic baseline for the same reason, to separate what learning contributes from what search does.
+
+\section*{Feature Table}
+
+The table below summarizes the major components implemented for the 2048 environment, AI agents, reinforcement learning pipeline, and user interface.
+
+\begingroup
+\fontsize{7.5}{8.6}\selectfont
+\setlength{\tabcolsep}{2.5pt}
+\renewcommand{\arraystretch}{1.05}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.16\textwidth}>{\raggedright\arraybackslash}p{0.075\textwidth}>{\raggedright\arraybackslash}p{0.117\textwidth}>{\raggedright\arraybackslash}p{0.10\textwidth}>{\raggedright\arraybackslash}p{0.12\textwidth}>{\raggedright\arraybackslash}p{0.348\textwidth}@{}}
+\toprule
+\textbf{Description} & \textbf{Platform} & \textbf{Completeness} & \textbf{Code} & \textbf{Author(s)} & \textbf{Notes} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Description} & \textbf{Platform} & \textbf{Completeness} & \textbf{Code} & \textbf{Author(s)} & \textbf{Notes} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+4×4 board and tile representation & Local & 5 & Python (NumPy) & João & Represents the board, tile values, and empty cells. \\
+Tile movement and merging & Local & 5 & Python (NumPy) & Praneet & Implements movement in four directions and merges equal tiles when they collide. \\
+Score, rewards, and game termination & Local & 5 & Python & Ryan & Handles rewards, score updates, legal-move checks, and game-over conditions. \\
+Random tile spawning & Local & 4 & Python & Jayden & Spawns a 2 or 4 in a random empty cell after a legal move. Automated tests are missing. \\
+Random agent & Local & 5 & Python & Jayden & Selects legal moves randomly and provides a baseline for evaluating stronger agents. \\
+Heuristic Expectimax agent & Local & 5 & Python & João, Praneet, Ryan & Implements max and chance nodes, expected-value calculation, search depth, termination, and a hand-written evaluation function. \\
+N-tuple network value function & Local & 5 & Python (NumPy) & João & Learns board values through tuple patterns, lookup tables, and board symmetries. \\
+TD learning training pipeline & Local & 4 & Python (NumPy) & Praneet & Trains the N-tuple value function through self-play and saves periodic checkpoints. Automated tests are missing. \\
+RL and Expectimax integration & Local & 4 & Python & Ryan & Uses the learned N-tuple value function inside Expectimax. Some automated tests are missing. \\
+Agent evaluation and performance comparison & Local & 5 & Python & Jayden & Compares the random, heuristic Expectimax, and Expectimax + RL agents. \\
+4×4 board and tile renderer & Local & 5 & Python (Pygame) & João & Displays the game board and tile values in the graphical interface. \\
+Game loop and tile animations & Local & 5 & Python (Pygame) & Jayden & Controls gameplay and implements movement and merge animations. \\
+Main menu and game header & Local & 5 & Python (Pygame) & Praneet, Ryan & Lets users select one of three agents or the comparison mode. Displays the title, score, best score, and restart control. \\
+Automated testing & Local & 3 & Python & João, Praneet & Tests cover the N-tuple network and board renderer. Core game mechanics and agents still lack automated tests. \\
+\end{longtable}
+\endgroup
+
+\section*{External Tools \& Libraries}
+
+We implemented the project in Python and used the following libraries for numerical computation, visualization, testing, and the graphical interface:
+
+\begin{itemize}[leftmargin=1.4em, itemsep=0.15em, topsep=0.2em]
+  \item Matplotlib generates the TD-learning progress graph from the recorded average scores.
+  \item Pytest runs the automated tests for the N-tuple network and user interface components.
+  \item NumPy represents and manipulates the 4×4 board and stores the N-tuple lookup tables.
+  \item Pygame provides the main menu, game board, score display, tile rendering, and animations.
+\end{itemize}
+
+We did not use an external dataset, API, or implementation of 2048. We wrote the game mechanics, Expectimax search, N-tuple network, TD-learning pipeline, and interface ourselves. Install the dependencies in \texttt{requirements.txt} with \texttt{pip install -r requirements.txt}; running the tests also requires Pytest.
 
 \end{document}
