@@ -59,18 +59,17 @@
 \begin{document}
 \begin{center}
 {\LARGE\bfseries 2048 Master How-To Guide}\\[0.15em]
-{\normalsize\bfseries CMPT 310, Group 1}\\[0.15em]
-\href{https://github.com/praneetkb/2048-Master}{github.com/praneetkb/2048-Master}
+{\normalsize\bfseries CMPT 310, Group 1}
 \end{center}
 \vspace{1em}
 
 \section*{Introduction}
 
-2048 Master is a project that builds an AI agent to play 2048, the sliding-tile puzzle game. The game is played on a 4×4 grid of tiles. Each turn, the agent slides all tiles in one of four directions (up, down, left, right). When two tiles with the same value collide, they merge into a single tile with twice the value, and the merged tile's value is added to the score. A move is legal if applying it changes the board. After every legal move, a random tile with value 2 or 4 is spawned. The game ends when no legal move remains.
+2048 Master is a project that builds an AI agent to play 2048, the sliding-tile puzzle game. The game is played on a 4x4 grid of tiles. Each turn, the agent slides all tiles in one of four directions (up, down, left, right); when two tiles with the same value collide, they merge into a single tile with twice the value, and the merged tile's value is added to the score. A move is considered legal if applying it changes the board, meaning tiles slide or merge. After every legal move, a random tile with value 2 or 4 is spawned. The game ends when no legal move remains.
 
-2048 is a reinforcement learning problem: the agent receives the board state as input and produces one of the four moves as output. Random tile spawning makes the environment stochastic, so the same move from the same board can lead to different results. The reward is the score gained from merges, and the agent's goal is to maximize the score it can reach over a game.
+2048 is a reinforcement learning problem: the agent receives the board state as input and produces one of the four moves as output. The outcome of a move is not fully under the agent's control: the random spawning of tiles makes the environment stochastic, so the same move from the same board can lead to different results. The reward is the score gained from merges, and the agent's goal is to learn to maximize the score it can reach over a game.
 
-This guide explains how we built the agent. We first implement the game environment, then build an N-tuple network and train it with temporal difference (TD) learning through self-play. We use the learned value function as the evaluator of an Expectimax search and compare the final agent against a random baseline. The guide also covers the Pygame interface and common troubleshooting issues.
+This guide explains how we built the agent, step by step. We first implement the game environment (board representation, movement and merging, tile spawning, and rewards). We then build an N-tuple network that estimates how good a board position is, and train it with temporal difference (TD) learning through self-play. We use the learned value function as the evaluator of an Expectimax search, and compare the final agent against a random baseline. The guide also covers the Pygame interface and common troubleshooting issues.
 
 \vspace{0.8em}
 \begin{figure}[H]
@@ -81,20 +80,30 @@ This guide explains how we built the agent. We first implement the game environm
 
 \section*{Setting Up the 2048 Environment}
 
+Before implementing the AI agents, we first built a game environment that represents the rules of 2048 and provides a consistent interface for agents to interact with the game.
+
 \subsection*{1. Board Representation}
 
-We represent the 2048 board as a 4×4 NumPy array. Each cell stores the numerical value of the tile at that position, while an empty cell is represented by 0:
+We represent the 2048 board as a 4x4 NumPy array. Each cell stores the numerical value of the tile at that position, while an empty cell is represented by 0. For example:
 
 \begin{center}
 \ttfamily
 [0, 2, 0, 0]\quad [0, 0, 0, 0]\quad [0, 0, 4, 0]\quad [2, 0, 0, 0]
 \end{center}
 
-This representation allows the environment to perform board operations efficiently and provides the current game state directly to the AI agents.
+This representation allows the environment to efficiently perform board operations and provides the current game state directly to the AI agents.
 
 \subsection*{2. Movement and Merging}
 
-A single move consists of sliding all tiles toward the selected direction and merging adjacent tiles with the same value. For a left move, we remove empty cells, merge equal adjacent tiles, then slide the row again:
+A single move in 2048 consists of two operations: sliding all the tiles toward the selected direction and merging adjacent tiles with the same value. For example, for a left move, we implement the following sequence:
+
+\begin{enumerate}
+  \item Remove all empty cells from the row by sliding non-zero tiles to the left.
+  \item Merge adjacent tiles if they have the same value.
+  \item Slide the row again to remove the empty spaces created by merging.
+\end{enumerate}
+
+For a single row, this is represented as:
 
 \begin{center}
 \ttfamily Before: [2, 2, 4, 0]\quad Merge: [4, 0, 4, 0]\quad Slide: [4, 4, 0, 0]
@@ -119,19 +128,21 @@ This reduces duplicated code and keeps the merging behavior consistent across al
 
 \subsection*{3. Random Tile Spawning}
 
-At the beginning of a game, two tiles are placed on randomly selected empty cells. After each legal move, the environment randomly selects an empty cell and places either a 2, with 90\% probability, or a 4, with 10\% probability. The movement functions return a \texttt{changed} flag, so a new tile is spawned only when the move modified the board. This makes 2048 a stochastic environment: the agent controls its actions, but it cannot control where or which value the next tile will appear.
+At the beginning of a game, two tiles are placed on randomly selected empty cells. After each legal move, the environment randomly selects an empty cell and places either a 2, with 90\% probability, or a 4, with 10\% probability. The movement functions return a \texttt{changed} flag indicating whether the move modified the board, so a new tile is spawned only when this flag is true. This random spawning makes 2048 a stochastic environment: the agent controls its actions, but it cannot control where or which value the next tile will appear.
 
 \subsection*{4. Rewards}
 
-The environment uses the score increase from tile merges as the immediate reward. When two equal tiles merge, the resulting tile's value is added to the score. For example, $[4,4]\rightarrow[8]$ gives a reward of 8. A move that only rearranges tiles receives a reward of 0. If multiple merges occur, their values are added to produce the total reward for that transition.
+The environment uses the score increase from tile merges as the immediate reward. When two equal tiles merge, the resulting tile's value is added to the score. For example, $[4,4]\rightarrow[8]$, so the reward is 8.
+
+A move that only rearranges tiles without creating a merge receives a reward of 0. If multiple merges occur during one move, their values are added together to produce the total reward for that transition. This reward design directly connects the agent's actions to the objective of achieving higher-value tiles.
 
 \section*{Building the N-Tuple Value Function}
 
-The RL agent needs a value function $V(s)$ that estimates how good a board position is. We represent it with an N-tuple network, a set of lookup tables that evaluate a board by summing selected entries. An N-tuple network captures useful local board structure with compact tables that can be trained efficiently using TD learning.
+The RL agent needs a value function $V(s)$ that estimates how good a board position is. We represent it with an N-tuple network: a set of lookup tables that evaluate a board by summing selected entries. We chose this approach over a neural network because 2048 has a vast state space. An N-tuple network captures useful local board structure with compact tables that can be trained efficiently using TD learning.
 
-\textbf{Tile ranks.} Every tile is a power of two, so instead of storing the value itself, we store its exponent. An empty cell becomes 0, and the tiles 2, 4 and 8 become 1, 2 and 3. This gives each cell one of 16 possible symbols.
+\textbf{Tile ranks.} The first step is to change how each tile is represented. Every tile in 2048 is a power of two (2, 4, 8, 16, ...), so instead of storing the value itself, we store its exponent: an empty cell becomes 0, and the tiles 2, 4 and 8 become 1, 2 and 3. This gives each cell one of 16 possible symbols, making the representation suitable for a finite lookup table. Four cells can then be described by a number with four digits, which is exactly what a table index needs.
 
-\textbf{Tuple patterns.} A tuple is a fixed pattern of four cells. We use 17 tuples: the four rows, the four columns, and the nine overlapping 2×2 squares. These patterns capture the local interactions used to evaluate a board.
+\textbf{Tuple patterns.} A tuple is a fixed pattern of four cells. We use 17 tuples: the four rows, the four columns, and the nine overlapping 2x2 squares (Figure 1). Because merges happen between adjacent tiles along rows and columns, these patterns capture the local interactions that are important for evaluating a board.
 
 \begin{figure}[H]
 \centering
@@ -139,9 +150,9 @@ The RL agent needs a value function $V(s)$ that estimates how good a board posit
 \caption{The 17 four-cell tuple patterns.}
 \end{figure}
 
-\textbf{Lookup tables.} Each tuple pattern has its own lookup table, with one slot for every possible combination of values its four cells can contain. With 16 possible values per cell, each table contains $16^4=65{,}536$ slots. The network reads the slot selected by each pattern and sums the values it finds. Initially, all slots are zero.
+\textbf{Lookup tables.} Each tuple pattern has its own lookup table, with one slot for every possible combination of values its four cells can contain. With 16 possible values per cell, each table contains $16^4=65{,}536$ slots. When the network evaluates a board, it reads the slot selected by each pattern and sums the values it finds. Initially, all slots are zero, so the network has no learned value for any position and training gradually updates these entries.
 
-\textbf{Base-16 encoding.} The four values in each tuple are converted into a single table index. The first cell contributes the units digit, while the remaining cells contribute multiples of 16, 256 and 4096. The tiles $[8,4,2,2]$ have exponents $[3,2,1,1]$, which encode as $3+2(16)+1(256)+1(4096)=4387$.
+\textbf{Base-16 encoding.} To select an entry from a table, the four values in each tuple must be converted into a single index. We encode the four cell values as the digits of a base-16 number. The first cell contributes the units digit, while the remaining cells contribute multiples of 16, 256 and 4096. For example, the tiles $[8,4,2,2]$ have exponents $[3,2,1,1]$, which encode as $3+2(16)+1(256)+1(4096)=4387$, so this combination of tiles is stored at index 4387 in that pattern's table. The following code implements this encoding:
 
 \begin{figure}[H]
 \centering
@@ -149,7 +160,7 @@ The RL agent needs a value function $V(s)$ that estimates how good a board posit
 \caption{Base-16 tuple encoding in the N-tuple network.}
 \end{figure}
 
-\textbf{Symmetry handling.} Rotated and reflected versions of the same board are strategically equivalent. Each board has eight orientations: four rotations and four rotations of a reflected version. We evaluate each board across all eight orientations using the same lookup tables. With 17 patterns and 8 orientations, each board contributes to 136 table entries. During training, the TD correction is divided evenly across these entries. We use \texttt{np.add.at} so entries selected more than once are updated correctly.
+\textbf{Symmetry handling.} Rotated and reflected versions of the same board are strategically equivalent as the same moves are available and they lead to the same outcomes. Therefore, each board has eight equivalent orientations: four rotations and four rotations of a reflected version. We exploit this by evaluating each board across all eight orientations using the same lookup tables. With 17 patterns and 8 orientations, each board contributes to 136 table entries. This allows each training position to provide information across all of its equivalent orientations. During training, the TD correction is divided evenly across these entries. We use \texttt{np.add.at} so that entries selected more than once are updated correctly.
 
 \begin{figure}[H]
 \centering
@@ -159,11 +170,11 @@ The RL agent needs a value function $V(s)$ that estimates how good a board posit
 
 \section*{Training with TD Learning}
 
-We train the N-tuple value function through self-play. Its lookup tables are initially zero. As the agent plays games, TD updates adjust these values based on the rewards and future afterstates it encounters.
+We use TD learning to train the N-tuple network value function through self-play. The N-tuple network's lookup tables are initially set to zero. As the agent plays games, TD updates adjust these values based on the rewards and future afterstates it encounters. The goal is for the value function to assign higher values to board positions that are more likely to lead to high scores and longer games.
 
 \subsection*{1. Afterstates}
 
-An afterstate is the board immediately after the player's move has been applied, but before the random tile is spawned. A move in 2048 is deterministic, so afterstates represent the direct result of the agent's decision before randomness enters. This lets the agent evaluate the resulting board for each legal action directly.
+A key part of our TD learning implementation is the use of afterstates. An afterstate is the board immediately after the player's move has been applied, but before the random tile is spawned. This distinction is useful because a move in 2048 is deterministic. We train the value function on these afterstates because they represent the direct result of the agent's decision before the randomness introduced by the environment. This allows the agent to evaluate the resulting board for each legal action directly, rather than learning a separate value for each action.
 
 \subsection*{2. TD Update}
 
@@ -176,19 +187,19 @@ Q(s,a) &= r(s,a)+V(s'_a),\\
 V(s'_t) &\leftarrow V(s'_t)+\alpha\delta_t.
 \end{align*}
 
-The value function estimates future rewards from an afterstate, so the immediate reward is handled separately during action selection. A terminal state has no future reward, so its TD target is zero.
+In our implementation, the value function estimates future rewards from an afterstate, so the immediate reward is handled separately during action selection. The terminal state has no future reward, so its TD target is set to zero.
 
 \subsection*{3. Self-Play Training Loop}
 
-The agent generates training data by repeatedly playing complete games of 2048. For each episode:
+The agent does not require an external dataset. Instead, it generates training data by repeatedly playing 2048 games against itself. Each complete game is treated as one training episode. For each episode:
 
 \begin{enumerate}
-  \item Start a new board and spawn the initial two tiles.
-  \item Test the four moves and discard actions that do not change the board.
-  \item Apply each legal action without spawning a tile, then calculate its reward plus N-tuple value.
-  \item Choose the action with the highest estimated value, execute it, and spawn a random tile.
-  \item Calculate the TD target and error, then update the previous afterstate's N-tuple values.
-  \item Continue until no legal moves remain, then start the next episode.
+  \item \textbf{Initialize the game:} Start a new board and spawn the initial two tiles.
+  \item \textbf{Generate legal actions:} Test the four possible moves and discard actions that do not change the board.
+  \item \textbf{Evaluate afterstates:} Apply each legal action without spawning a tile and calculate its immediate reward plus N-tuple value.
+  \item \textbf{Select and execute an action:} Choose the action with the highest estimated value. The environment executes the move, calculates the reward, and spawns a random tile.
+  \item \textbf{Update the value function:} Evaluate the best afterstate from the resulting board, calculate the TD target and error, and update the previous afterstate's N-tuple values.
+  \item \textbf{Repeat:} Continue until no legal moves remain, then start the next episode.
 \end{enumerate}
 
 \begin{figure}[H]
@@ -199,7 +210,7 @@ The agent generates training data by repeatedly playing complete games of 2048. 
 
 \subsection*{4. Training Configuration}
 
-We trained the agent for 10,000 episodes to expose the value function to a wide range of board configurations. We experimented with different learning rates and selected the final value based on training performance and stability. Checkpoints are saved as \texttt{.npz} files containing the current N-tuple lookup tables, allowing training to resume without starting from zero.
+An episode is one complete game of 2048. We trained the agent for 10,000 episodes to expose the value function to a wide range of board configurations. We experimented with different learning rates during development and selected the final value based on training performance and stability. Checkpoints are periodically saved as \texttt{.npz} files containing the current N-tuple lookup tables. These checkpoints allow the trained value function to be evaluated or training to be continued without starting from zero.
 
 \begin{figure}[H]
 \centering
@@ -209,7 +220,7 @@ We trained the agent for 10,000 episodes to expose the value function to a wide 
 
 \subsection*{5. Monitoring Training Progress}
 
-We record each episode's score and calculate the average score. An increasing average indicates that the agent is generally learning to produce better game outcomes over time.
+To determine whether the agent is learning, we record the score from each training episode and calculate the average score. An increasing average score indicates that the agent is generally learning to produce better game outcomes over time.
 
 \begin{figure}[H]
 \centering
@@ -219,7 +230,7 @@ We record each episode's score and calculate the average score. An increasing av
 
 \section*{Integrating the Learned Value Function with Expectimax}
 
-Expectimax needs a model of the game's randomness and a way to evaluate board positions. Chance nodes model the random spawning of a 2 or 4 tile. Our original Expectimax agent used a hand-designed heuristic. For the RL agent, we replaced that heuristic with the value function learned through TD self-play.
+Expectimax needs two things to make decisions: a model of the game's randomness and a way to evaluate board positions. The chance nodes model the random spawning of a 2 or 4 tile, while the evaluation function estimates how promising a board position is. For our original Expectimax agent, this evaluation was a hand-designed heuristic. For the RL agent, we replaced that heuristic with the value function learned by the N-tuple network through TD self-play.
 
 The search alternates between max nodes, where the agent chooses the best legal move, and chance nodes. We used a search depth of 2:
 
@@ -227,7 +238,7 @@ The search alternates between max nodes, where the agent chooses the best legal 
 max node $\rightarrow$ chance node $\rightarrow$ max node $\rightarrow$ chance node $\rightarrow$ evaluation function
 \end{center}
 
-At the leaf nodes, the N-tuple network evaluates the resulting board. Expectimax then determines which initial move has the highest expected outcome.
+As the depth increases, the computation time does as well. The learned value function was integrated in the existing Expectimax class. At the leaf nodes, the N-tuple network evaluates the resulting board. Expectimax then uses these values to determine which initial move has the highest expected outcome.
 
 \begin{figure}[H]
 \centering
@@ -237,7 +248,7 @@ At the leaf nodes, the N-tuple network evaluates the resulting board. Expectimax
 
 \section*{Evaluating the Agent}
 
-We compared the Random agent, heuristic Expectimax, and Expectimax + RL in the same environment. The two Expectimax agents use the same depth-2 search; only their leaf evaluation differs. Each agent played 30 games.
+To evaluate our approach, we compared three agents in the same 2048 environment: the Random agent, the heuristic Expectimax agent, and the Expectimax + RL agent. The two Expectimax agents use the same depth-2 search; the only difference is how their leaf states are evaluated. The heuristic agent uses our hand-designed evaluation function, while the RL agent uses the trained N-tuple value function. Each agent played 30 games, and we recorded the average, median, and best score, highest tile reached, number of games reaching 2048, and average time per move.
 
 \begin{table}[H]
 \centering
@@ -255,11 +266,13 @@ Expectimax + RL & 30 & 62,244 & 66,646 & 120,744 & 8,192 & 30/30 & 12.9 \\
 \caption{Results from 30 games per agent.}
 \end{table}
 
-The RL agent achieved an average score more than four times higher than heuristic Expectimax and reached 2048 in all 30 games. Its best game reached 8192 with a score of 120,744. The RL agent takes about 4 ms more per move, which remains fast enough for real-time gameplay. Since both Expectimax agents use the same search, the difference comes from the learned N-tuple value function.
+The results show that the approach works. The RL agent achieved an average score more than four times higher than the heuristic Expectimax agent (62,244 vs. 14,724) and reached the 2048 tile in all 30 games, compared with 5/30 for the heuristic agent and 0/30 for Random. Its best game reached the 8192 tile with a score of 120,744. This improvement comes with a small performance cost: the RL agent takes about 4 ms more per move, which is still fast enough for real-time gameplay. Since the heuristic and RL agents use the exact same search strategy, the performance difference comes from the value function: the N-tuple network trained with TD learning provides the stronger board evaluations that make the RL agent significantly more effective.
 
 \section*{UI: The Pygame Interface}
 
-The UI is separated from the game logic. The renderer displays the game, the environment handles the rules and state, and the AI agents independently select actions. The main menu offers the three agents and the comparison screen, selected with keys 1 to 4 or by clicking the buttons.
+To watch the agents play, we built a Pygame interface based on the original 2048 game. The UI is separated from the game logic: the renderer is responsible only for displaying the game, while the game environment handles the 2048 rules and state, and the AI agents independently decide which actions to take.
+
+The main menu offers the three agents and the comparison screen, selected with the keys 1 to 4 or by clicking the buttons:
 
 \begin{figure}[H]
 \centering
@@ -278,26 +291,29 @@ The UI is separated from the game logic. The renderer displays the game, the env
 \caption{The Pygame interface.}
 \end{figure}
 
-Picking an agent starts a game and the agent plays by itself. Tiles slide and merge with animation, and the score updates in the header. Press \texttt{R} to restart, or \texttt{Esc} to return to the menu. When the game ends, an overlay shows the final score and best tile. The comparison screen runs five games per agent and reports the average score, best score and highest tile.
+Picking an agent starts a game and the agent plays by itself. Tiles slide and merge with animation, and the score updates in the header. Press \texttt{R} to restart the game, or \texttt{Esc} to return to the menu. When the game ends, an overlay shows the final score and the best tile reached.
+
+The agent comparision screen runs a short benchmark of 5 games per agent and shows a live table with the average score, best score and highest tile for each.
 
 \section*{Troubleshooting}
 
 \subsection*{Problem 1: \texttt{ModuleNotFoundError: No module named 'agents'}}
 
-Running \texttt{python3 training/td\_learning.py} directly can fail because Python does not treat the project root as the package root. From the project root, run:
+While running the training, if the command is \texttt{python3 training/td\_learning.py}, this will produce an error because the script is being executed from inside a subdirectory or Python is not using the project root as its working directory.
 
-\begin{center}\texttt{python3 -m training.td\_learning}\end{center}
+Solution: Run \texttt{python3 -m training.td\_learning} from the root directory of the project.
 
 \subsection*{Problem 2: \texttt{ModuleNotFoundError: No module named 'pygame'}}
 
-This means the current Python environment does not have the required dependencies. From the project root, run:
+This error is when the program fails to start and pygame is unable to launch. This happens when the required Python dependencies have not been installed in the current Python environment.
 
-\begin{center}\texttt{pip install -r requirements.txt}\qquad\texttt{python3 main.py}\end{center}
+Solution: From the project root, install the dependencies listed in \texttt{requirements.txt} using \texttt{pip install -r requirements.txt}, then run the project again with \texttt{python3 main.py}.
 
 \section*{Conclusion}
 
-We built the environment, trained an N-tuple value function through TD self-play, and used it in Expectimax to replace the hand-designed heuristic.
+This guide presented the main techniques we used to build our 2048 AI agent. We first implemented the 2048 environment, then trained an N-tuple network value function using Temporal Difference learning and self-play and integrated the learned value function with Expectimax search to allow the agent to make decisions during gameplay. The main takeaway is that the different components work together as a complete reinforcement learning pipeline. This approach allowed us to replace a manually designed heuristic with a value function learned directly from gameplay experience.
 
-{\footnotesize The authors retain full copyright of this guide and grant Simon Fraser University (SFU) permission to publish and share it for academic and educational purposes, including use by future students.}
+\vfill
+{\footnotesize\itshape\color{gray} The authors retain full copyright of this guide and grant Simon Fraser University (SFU) permission to publish and share it for academic and educational purposes, including use by future students.}
 
 \end{document}
